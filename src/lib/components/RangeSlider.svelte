@@ -4,9 +4,12 @@
   export let possibleRange: { min: number; max: number } = { min: 0, max: 100 };
   $: possibleWidth = possibleRange.max - possibleRange.min;
   $: possibleMinPosition = 100 * possibleRange.min
+
   export let selectedRange: { min: number; max: number } = possibleRange;
   $: selectedMinPosition = possibleMinPosition + 100 * selectedRange.min / possibleWidth;
   $: selectedMaxPosition = possibleMinPosition + 100 * selectedRange.max / possibleWidth;
+
+  export let render: (value: number) => string = (value) => value.toString();
 
   let slider: HTMLElement;
   let minHandle: HTMLElement;
@@ -89,7 +92,7 @@
       use:draggable
       on:dragmove|preventDefault={setHandlePosition("min")}
       style:left={`${selectedMinPosition}%`}
-      style:--value={`'${selectedRange.min}'`}
+      style:--value={`'${render(selectedRange.min)}'`}
     ></div>
     <div
       bind:this={maxHandle}
@@ -98,7 +101,7 @@
       use:draggable
       on:dragmove|preventDefault={setHandlePosition("max")}
       style:left={`${selectedMaxPosition}%`}
-      style:--value={`'${selectedRange.max}'`}
+      style:--value={`'${render(selectedRange.max)}'`}
     ></div>
   </div>
 </div>
@@ -148,9 +151,10 @@
         position: absolute;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%);
+        transform: translate(-50%, 50%);
         font-size: 12px;
         color: #000;
+        white-space: nowrap;
       }
     }
 </style>

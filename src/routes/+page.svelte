@@ -3,12 +3,18 @@
   import FilterComponent from "$lib/components/Filter.svelte";
   import type { GroupedFilter } from "$lib/filters";
   import RangeSlider from "$lib/components/RangeSlider.svelte";
+  import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
+  import prettyBytes from "pretty-bytes";
 
   export let data: PageData;
 
   let pathFilter = "";
   let typeFilter = "all";
-  let numberTrainsFilter: { min: number; max: number } = { min: 0, max: 10 };
+  let sizeFilter = SIZE_RANGE;
+  let widthFilter = WIDTH_RANGE;
+  let heightFilter = HEIGHT_RANGE;
+  let durationFilter = DURATION_RANGE;
+  let numberTrainsFilter = NUMBER_TRAINS_RANGE
   let tagFilter: GroupedFilter;
 
   async function refresh() {
@@ -39,8 +45,26 @@
       </select>
     </div>
     <div>
+      <label for="size">Size</label>
+      <RangeSlider possibleRange={SIZE_RANGE} bind:selectedRange={sizeFilter} render={prettyBytes} />
+    </div>
+    <div>
+      <label for="width">Width</label>
+      <RangeSlider possibleRange={WIDTH_RANGE} bind:selectedRange={widthFilter} render={px => `${px}px`} />
+    </div>
+    <div>
+      <label for="height">Height</label>
+      <RangeSlider possibleRange={HEIGHT_RANGE} bind:selectedRange={heightFilter} render={px => `${px}px`} />
+    </div>
+    <div>
+      <label for="duration">Duration</label>
+      <RangeSlider possibleRange={DURATION_RANGE} bind:selectedRange={durationFilter}
+                   render={(value) => `${Math.floor(value / 60)}:${(value % 60).toString().padStart(2, "0")}`}
+      />
+    </div>
+    <div>
       <label for="numberTrains">Number of trains</label>
-      <RangeSlider possibleRange={{min: 0, max: 10}} bind:selectedRange={numberTrainsFilter} />
+      <RangeSlider possibleRange={NUMBER_TRAINS_RANGE} bind:selectedRange={numberTrainsFilter} />
     </div>
     <div>
       <span>Tags</span>
@@ -77,7 +101,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
 
     & > div {
       display: flex;
