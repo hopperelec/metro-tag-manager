@@ -13,7 +13,7 @@ export default async function getClientData(): Promise<{ media: Media[] }> {
       {
         id: media.id,
         path: media.path,
-        size: media.size ?? undefined,
+        size: media.size === undefined ? undefined : Number(media.size), // bigint cannot be serialized to JSON
         duration: media.duration ?? undefined,
         width: media.width ?? undefined,
         height: media.height ?? undefined,
