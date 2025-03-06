@@ -23,3 +23,23 @@ export interface LocalGroupFilter extends GroupedFilter {
 export type LocalFilter = TagFilter | LocalGroupFilter;
 
 export type Filter = TagFilter | GroupedFilter;
+
+export function filterLocal(filter: Filter, tags: string[]): boolean {
+  if (filter.group) {
+    if (filter.or) return filter.filters.some(f => filterLocal(f, tags));
+    return filter.filters.every(f => filterLocal(f, tags));
+  }
+  return tags.includes(filter.tag);
+}
+
+export function filterGlobal(filter: Filter, globalTags: string[], localTags: string[][]): boolean {
+  if (filter.group) {
+    const func = filter.local
+      ? (f: Filter) => localTags.some(tags => filterLocal(f, tags))
+      : (f: Filter) => filterGlobal(f, globalTags, localTags);
+    if (filter.or) return filter.filters.some(func);
+    return filter.filters.every(func);
+  }
+  const tag = filter.tag.trim();
+  return tag === "" || globalTags.includes(tag);
+}

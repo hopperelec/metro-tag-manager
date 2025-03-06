@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageData } from "./$types";
   import FilterComponent from "$lib/components/Filter.svelte";
-  import type { GroupedFilter } from "$lib/filters";
+  import { filterGlobal, type GroupedFilter } from "$lib/filters";
   import RangeSlider from "$lib/components/RangeSlider.svelte";
   import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
   import prettyBytes from "pretty-bytes";
@@ -48,7 +48,7 @@
     const numTags = Object.keys(media.contextTags).length + Object.keys(media.trainTags).length;
     if (hasTagsFilter === "on" && numTags === 0) return false;
     if (hasTagsFilter === "off" && numTags !== 0) return false;
-    // TODO: Tag filtering
+    if (tagFilter && !filterGlobal(tagFilter, media.contextTags, Object.values(media.trainTags))) return false;
     return true;
   });
 </script>
