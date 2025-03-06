@@ -1,0 +1,7 @@
+/node_modules/
+/build/
+/.svelte-kit/
+/.vercel/
+/.idea/
+/prisma/tags.db
+/vite.config.ts.timestamp-*.mjs

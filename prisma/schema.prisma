@@ -1,0 +1,41 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./tags.db"
+}
+
+model Media {
+  id Int @id @default(autoincrement())
+
+  path    String  @unique
+  isVideo Boolean
+  exists  Boolean @default(true)
+
+  contextTags ContextTag[]
+  trainTags   TrainTag[]
+}
+
+model ContextTag {
+  id Int @id @default(autoincrement())
+
+  mediaId Int
+  media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  tag String
+}
+
+model TrainTag {
+  id Int @id @default(autoincrement())
+
+  mediaId Int
+  media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  trainId Int
+  tag     String
+
+  @@unique([mediaId, trainId, tag])
+}

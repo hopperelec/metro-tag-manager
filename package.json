@@ -1,0 +1,54 @@
+{
+  "name": "metro-tag-manager",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "stylelint": "stylelint '**/*.{css,html,scss,svelte}'",
+    "format:biome": "biome check --write --unsafe .",
+    "format:prisma-prettier": "prettier -w prisma/schema.prisma",
+    "format": "pnpm run format:biome && pnpm run format:prisma-prettier",
+    "format-check:biome": "biome check .",
+    "format-check:prisma-prettier": "prettier -c prisma/schema.prisma",
+    "format-check": "pnpm run format-check:biome && pnpm run format-check:prisma-prettier",
+    "prisma:push": "prisma db push",
+    "prisma:migratedev": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.16.1",
+    "@sveltejs/adapter-node": "^5.2.12",
+    "mime": "^4.0.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@types/html-minifier-terser": "^7.0.2",
+    "@types/node": "^22.13.9",
+    "autoprefixer": "^10.4.19",
+    "postcss-preset-env": "^9.5.15",
+    "prettier": "^3.3.2",
+    "prettier-plugin-prisma": "^5.0.0",
+    "prisma": "^5.16.1",
+    "sass": "^1.77.6",
+    "stylelint": "^16.6.1",
+    "stylelint-config-html": "^1.1.0",
+    "stylelint-config-prettier-scss": "^1.0.0",
+    "stylelint-config-standard": "^36.0.1",
+    "stylelint-config-standard-scss": "^13.1.0",
+    "stylelint-use-nesting": "^5.1.1",
+    "svelte": "^4.2.7",
+    "svelte-check": "^3.6.0",
+    "tslib": "^2.4.1",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.3"
+  },
+  "browserslist": [
+    "defaults",
+    "iOS 12"
+  ]
+}
