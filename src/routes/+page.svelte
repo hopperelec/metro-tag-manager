@@ -22,29 +22,43 @@
   let hasTagsFilter: "off" | "ignore" | "on" = "ignore";
   let tagFilter: GroupedFilter;
 
+  let loadingData = false;
+
   async function refresh() {
+    if (loadingData) return;
+    loadingData = true;
     const response = await fetch("refresh");
     data = await response.json();
+    loadingData = false;
   }
 
-  function outsideRange(value: number | undefined, possibleRange: Range, selectedRange: Range) {
+  function outsideRange(value: bigint | number | undefined, possibleRange: Range, selectedRange: Range) {
     if (value === undefined)
       return selectedRange.min !== possibleRange.min || selectedRange.max !== possibleRange.max;
     return value < selectedRange.min || value > selectedRange.max;
   }
 
-  $: sortedMedia = data.media.sort((a, b) => a.path.localeCompare(b.path));
-  $: filteredMedia = sortedMedia.filter(media => {
+  $: media = data.media
+    // Pre-process some values, so they don't need to be re-calculated whenever the filters change
+    .map(media => ({
+      ...media,
+      type: media.duration === 0 ? "image" : "video",
+      numTrains: Object.keys(media.trainTags).length,
+      numTags: Object.keys(media.contextTags).length + Object.values(media.trainTags).reduce((acc, tags) => acc + tags.length, 0)
+    }))
+    // Sort by path
+    .sort((a, b) => a.path.localeCompare(b.path));
+
+  $: filteredMedia = media.filter(media => {
     if (pathFilterRegex && !pathFilterRegex.test(media.path)) return false;
-    if (typeFilter !== "all" && (media.duration === 0 ? "image" : "video") !== typeFilter) return false;
+    if (typeFilter !== "all" && media.type !== typeFilter) return false;
     if (outsideRange(media.size, SIZE_RANGE, sizeFilter)) return false;
     if (outsideRange(media.width, WIDTH_RANGE, widthFilter)) return false;
     if (outsideRange(media.height, HEIGHT_RANGE, heightFilter)) return false;
     if (outsideRange(media.duration, DURATION_RANGE, durationFilter)) return false;
-    if (outsideRange(Object.keys(media.trainTags).length, NUMBER_TRAINS_RANGE, numberTrainsFilter)) return false;
-    const numTags = Object.keys(media.contextTags).length + Object.keys(media.trainTags).length;
-    if (hasTagsFilter === "on" && numTags === 0) return false;
-    if (hasTagsFilter === "off" && numTags !== 0) return false;
+    if (outsideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter)) return false;
+    if (hasTagsFilter === "on" && media.numTags === 0) return false;
+    if (hasTagsFilter === "off" && media.numTags !== 0) return false;
     if (tagFilter && !filterGlobal(tagFilter, media.contextTags, Object.values(media.trainTags))) return false;
     return true;
   });
@@ -95,9 +109,9 @@
       <FilterComponent bind:filter={tagFilter} />
     </div>
   </div>
-  <div id="results">
+  <div class:loading={loadingData} id="results">
     <h2>Results</h2>
-    <button on:click={refresh}>Refresh</button>
+    <button disabled={loadingData} on:click={refresh}>Refresh</button>
     <MediaList medias={filteredMedia} />
   </div>
 </div>
@@ -130,5 +144,13 @@
     flex-direction: column;
     align-items: center;
     padding-top: 1em;
+  }
+
+  .loading {
+    cursor: wait;
+
+    & > * {
+      pointer-events: none;
+    }
   }
 </style>
