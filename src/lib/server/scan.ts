@@ -15,7 +15,7 @@ type FileData = {
 async function scan(relativeDir = ""): Promise<FileData[]> {
   const files = await fs.readdir(path.join(MEDIA_PATH, relativeDir));
   const media: FileData[] = [];
-  for (const file of files) {
+  await Promise.allSettled(files.map(async (file) => {
     const relativeFilePath = path.join(relativeDir, file);
     const absoluteFilePath = path.join(MEDIA_PATH, relativeFilePath);
     const stat = await fs.stat(absoluteFilePath);
@@ -24,7 +24,7 @@ async function scan(relativeDir = ""): Promise<FileData[]> {
       media.push(...await scan(relativeFilePath));
     } else if (stat.isFile() && !EXCLUDED_FILES.includes(relativeFilePath)) {
       const ext = path.extname(file).toLowerCase();
-      if (!VALID_EXTENSIONS.includes(ext)) continue;
+      if (!VALID_EXTENSIONS.includes(ext)) return;
       const isVideo = VIDEO_EXTENSIONS.includes(ext);
       const fileData = await new Promise<FileData>((resolve, reject) => {
         ffmpeg.ffprobe(absoluteFilePath, (err, metadata) => {
@@ -40,7 +40,7 @@ async function scan(relativeDir = ""): Promise<FileData[]> {
       });
       media.push(fileData);
     }
-  }
+  }));
   return media;
 }
 
