@@ -1,20 +1,15 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import prisma from "$lib/server/prisma";
-
-export const MEDIA_FOLDER = "D:\\hoppe\\Videos\\Metros";
-export const EXCLUDED_FOLDERS = ["announcements"];
-export const EXCLUDED_FILES = ["555 diagram.png"];
-export const VIDEO_EXTENSIONS = [".mp4", ".mov"];
-export const VALID_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ...VIDEO_EXTENSIONS];
+import { EXCLUDED_FILES, EXCLUDED_FOLDERS, MEDIA_PATH, VALID_EXTENSIONS, VIDEO_EXTENSIONS } from "$lib/constants";
 
 async function scan(relativeDir = ""): Promise<{ images: string[]; videos: string[] }> {
-  const files = await fs.readdir(path.join(MEDIA_FOLDER, relativeDir));
+  const files = await fs.readdir(path.join(MEDIA_PATH, relativeDir));
   const images = [];
   const videos = [];
   for (const file of files) {
     const relativeFilePath = path.join(relativeDir, file);
-    const absoluteFilePath = path.join(MEDIA_FOLDER, relativeFilePath);
+    const absoluteFilePath = path.join(MEDIA_PATH, relativeFilePath);
     const stat = await fs.stat(absoluteFilePath);
 
     if (stat.isDirectory() && !EXCLUDED_FOLDERS.includes(relativeFilePath)) {

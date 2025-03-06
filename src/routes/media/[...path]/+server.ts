@@ -1,8 +1,8 @@
 import { error, type RequestHandler } from "@sveltejs/kit";
-import { EXCLUDED_FILES, EXCLUDED_FOLDERS, MEDIA_FOLDER, VALID_EXTENSIONS } from "$lib/server/scan";
 import path from "node:path";
 import { createReadStream, promises as fs } from "node:fs";
 import mime from "mime";
+import { EXCLUDED_FILES, EXCLUDED_FOLDERS, MEDIA_PATH, VALID_EXTENSIONS } from "$lib/constants";
 
 function createReadableStream(filePath: string, start?: number, end?: number) {
   const stream = createReadStream(filePath, { start, end });
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
   if (!VALID_EXTENSIONS.includes(ext))
     error(403, "Forbidden");
 
-  const filePath = path.join(MEDIA_FOLDER, relativePath);
+  const filePath = path.join(MEDIA_PATH, relativePath);
   try {
     await fs.access(filePath, fs.constants.R_OK);
   } catch {

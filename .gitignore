@@ -5,3 +5,4 @@
 /.idea/
 /prisma/tags.db
 /vite.config.ts.timestamp-*.mjs
+/.env
