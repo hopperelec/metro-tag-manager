@@ -2,11 +2,13 @@
   import type { PageData } from "./$types";
   import FilterComponent from "$lib/components/Filter.svelte";
   import type { GroupedFilter } from "$lib/filters";
+  import RangeSlider from "$lib/components/RangeSlider.svelte";
 
   export let data: PageData;
 
   let pathFilter = "";
   let typeFilter = "all";
+  let numberTrainsFilter: { min: number; max: number } = { min: 0, max: 10 };
   let tagFilter: GroupedFilter;
 
   async function refresh() {
@@ -38,6 +40,10 @@
         <option value="image">Image</option>
         <option value="video">Video</option>
       </select>
+    </div>
+    <div>
+      <label for="numberTrains">Number of trains</label>
+      <RangeSlider possibleRange={{min: 0, max: 10}} bind:selectedRange={numberTrainsFilter} />
     </div>
     <div>
       <span>Tags</span>
