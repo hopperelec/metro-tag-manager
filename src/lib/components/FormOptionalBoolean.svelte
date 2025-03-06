@@ -57,7 +57,7 @@
         }
     }
 
-    [value=""] {
+    [value="ignore"] {
         background-color: #ccc;
         border-left: none;
         border-right: none;
