@@ -104,12 +104,33 @@
     <ul>
       {#each filteredMedia as media (media.id)}
         <li>
-          {#if media.duration === 0}
-            <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
-          {:else}
-            <!-- svelte-ignore a11y-media-has-caption -->
-            <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo} />
-          {/if}
+          <div id="media-item">
+            {#if media.duration === 0}
+              <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
+            {:else}
+              <!-- svelte-ignore a11y-media-has-caption -->
+              <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo} />
+            {/if}
+          </div>
+          <span class="path">{media.path}</span>
+          <span class="size">{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
+          <!-- TODO: Style tags -->
+          <ul class="context-tags">
+            {#each media.contextTags as contextTag}
+              <li>{contextTag}</li>
+            {/each}
+          </ul>
+          <ul class="trains">
+            {#each Object.values(media.trainTags) as train}
+              <li>
+                <ul>
+                  {#each train as trainTag}
+                    <li>{trainTag}</li>
+                  {/each}
+                </ul>
+              </li>
+            {/each}
+          </ul>
         </li>
       {/each}
     </ul>
@@ -157,6 +178,12 @@
     display: flex;
     flex-direction: column;
     padding: .5em;
+    white-space: nowrap;
+
+    & > span {
+      overflow: clip;
+      text-overflow: ellipsis;
+    }
   }
 
   img, video {
