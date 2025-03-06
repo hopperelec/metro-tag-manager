@@ -12,7 +12,15 @@
   export let data: PageData;
 
   let pathFilter = "";
-  $: pathFilterRegex = pathFilter ? new RegExp(pathFilter) : null;
+  let pathFilterRegex: RegExp | null;
+  $: {
+    try {
+      pathFilterRegex = new RegExp(pathFilter);
+    } catch (e) {
+      pathFilterRegex = null;
+    }
+  }
+
   let typeFilter = "all";
   let sizeFilter = SIZE_RANGE;
   let widthFilter = WIDTH_RANGE;
@@ -69,7 +77,7 @@
     <h2>Filters</h2>
     <div>
       <label for="path">Path (regex)</label>
-      <input bind:value={pathFilter} id="path" type="text" />
+      <input bind:value={pathFilter} class:invalid={pathFilterRegex === null} id="path" type="text" />
     </div>
     <div>
       <label for="type">Type</label>
@@ -136,6 +144,10 @@
       align-items: center;
       margin-bottom: 1em;
     }
+  }
+
+  .invalid {
+    color: red;
   }
 
   #results {
