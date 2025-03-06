@@ -1,11 +1,11 @@
 <!-- Adapted from https://svelte.dev/playground/75d34e46cbe64bb68b7c2ac2c61931ce -->
 
 <script lang="ts">
-  export let possibleRange: { min: number; max: number } = { min: 0, max: 100 };
+  export let possibleRange = { min: 0, max: 100 };
   $: possibleWidth = possibleRange.max - possibleRange.min;
   $: possibleMinPosition = 100 * possibleRange.min
 
-  export let selectedRange: { min: number; max: number } = possibleRange;
+  export let selectedRange = possibleRange;
   $: selectedMinPosition = possibleMinPosition + 100 * selectedRange.min / possibleWidth;
   $: selectedMaxPosition = possibleMinPosition + 100 * selectedRange.max / possibleWidth;
 

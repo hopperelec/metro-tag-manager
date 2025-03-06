@@ -5,16 +5,20 @@
   import RangeSlider from "$lib/components/RangeSlider.svelte";
   import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
   import prettyBytes from "pretty-bytes";
+  import type { Range } from "$lib/types";
+  import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
 
   export let data: PageData;
 
   let pathFilter = "";
+  $: pathFilterRegex = pathFilter ? new RegExp(pathFilter) : null;
   let typeFilter = "all";
   let sizeFilter = SIZE_RANGE;
   let widthFilter = WIDTH_RANGE;
   let heightFilter = HEIGHT_RANGE;
   let durationFilter = DURATION_RANGE;
-  let numberTrainsFilter = NUMBER_TRAINS_RANGE
+  let numberTrainsFilter = NUMBER_TRAINS_RANGE;
+  let hasTagsFilter: "off" | "ignore" | "on" = "ignore";
   let tagFilter: GroupedFilter;
 
   async function refresh() {
@@ -26,7 +30,27 @@
     (event.target as HTMLVideoElement).preload = "metadata";
   }
 
+  function outsideRange(value: number | undefined, possibleRange: Range, selectedRange: Range) {
+    if (value === undefined)
+      return selectedRange.min !== possibleRange.min || selectedRange.max !== possibleRange.max
+    return value < selectedRange.min || value > selectedRange.max;
+  }
+
   $: sortedMedia = data.media.sort((a, b) => a.path.localeCompare(b.path));
+  $: filteredMedia = sortedMedia.filter(media => {
+    if (pathFilterRegex && !pathFilterRegex.test(media.path)) return false;
+    if (typeFilter !== "all" && (media.duration === 0 ? "image" : "video") !== typeFilter) return false;
+    if (outsideRange(media.size, SIZE_RANGE, sizeFilter)) return false;
+    if (outsideRange(media.width, WIDTH_RANGE, widthFilter)) return false;
+    if (outsideRange(media.height, HEIGHT_RANGE, heightFilter)) return false;
+    if (outsideRange(media.duration, DURATION_RANGE, durationFilter)) return false;
+    if (outsideRange(Object.keys(media.trainTags).length, NUMBER_TRAINS_RANGE, numberTrainsFilter)) return false;
+    const numTags = Object.keys(media.contextTags).length + Object.keys(media.trainTags).length;
+    if (hasTagsFilter === "on" && numTags === 0) return false;
+    if (hasTagsFilter === "off" && numTags !== 0) return false;
+    // TODO: Tag filtering
+    return true;
+  });
 </script>
 
 <div id="page-container">
@@ -67,6 +91,9 @@
       <RangeSlider possibleRange={NUMBER_TRAINS_RANGE} bind:selectedRange={numberTrainsFilter} />
     </div>
     <div>
+      <FormOptionalBoolean label="Has tags" bind:value={hasTagsFilter} />
+    </div>
+    <div>
       <span>Tags</span>
       <FilterComponent bind:filter={tagFilter} />
     </div>
@@ -75,13 +102,13 @@
     <h2>Results</h2>
     <button on:click={refresh}>Refresh</button>
     <ul>
-      {#each sortedMedia as { path, duration } (path)}
+      {#each filteredMedia as media (media.id)}
         <li>
-          {#if duration === 0}
-            <img src={`media/${path}`} alt={path} loading="lazy" />
+          {#if media.duration === 0}
+            <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
           {:else}
             <!-- svelte-ignore a11y-media-has-caption -->
-            <video src={`media/${path}`} controls preload="none" on:mouseenter={loadVideo} />
+            <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo} />
           {/if}
         </li>
       {/each}
