@@ -16,7 +16,7 @@
         <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
       {:else}
         <!-- svelte-ignore a11y-media-has-caption -->
-        <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo} />
+        <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo}></video>
       {/if}
       <span class="path">{media.path}</span>
       <span class="size">{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
