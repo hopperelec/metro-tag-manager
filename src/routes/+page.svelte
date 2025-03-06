@@ -20,10 +20,7 @@
     (event.target as HTMLVideoElement).preload = "metadata";
   }
 
-  $: sortedMedia = [
-    ...data.images.map(image => ({ ...image, isVideo: false })),
-    ...data.videos.map(video => ({ ...video, isVideo: true }))
-  ].sort((a, b) => a.path.localeCompare(b.path));
+  $: sortedMedia = data.media.sort((a, b) => a.path.localeCompare(b.path));
 </script>
 
 <div id="page-container">
@@ -54,13 +51,13 @@
     <h2>Results</h2>
     <button on:click={refresh}>Refresh</button>
     <ul>
-      {#each sortedMedia as { path, isVideo } (path)}
+      {#each sortedMedia as { path, duration } (path)}
         <li>
-          {#if isVideo}
+          {#if duration === 0}
+            <img src={`media/${path}`} alt={path} loading="lazy" />
+          {:else}
             <!-- svelte-ignore a11y-media-has-caption -->
             <video src={`media/${path}`} controls preload="none" on:mouseenter={loadVideo} />
-          {:else}
-            <img src={`media/${path}`} alt={path} loading="lazy" />
           {/if}
         </li>
       {/each}
