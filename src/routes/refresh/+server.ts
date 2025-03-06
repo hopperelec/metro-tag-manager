@@ -4,5 +4,5 @@ import getClientData from "$lib/server/get-client-data";
 
 export const GET: RequestHandler = async () => {
   await scanAndSave();
-  return json(getClientData());
+  return json(await getClientData());
 };
