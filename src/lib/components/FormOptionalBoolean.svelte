@@ -52,7 +52,7 @@
         border-right: none;
         justify-content: right;
 
-        &:after {
+        &::after {
             content: "❌";
         }
     }
@@ -69,7 +69,7 @@
         border-radius: 0 50% 50% 0;
         border-left: none;
 
-        &:after {
+        &::after {
             content: "✔️";
         }
     }

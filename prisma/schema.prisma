@@ -11,7 +11,7 @@ datasource db {
 model Media {
   id Int @id @default(autoincrement())
 
-  path     String @unique
+  path     String  @unique
   size     BigInt? // in bytes, null means doesn't exist
   duration Int? // in seconds, 0 means image, null means unknown
   width    Int? // in pixels, null means unknown

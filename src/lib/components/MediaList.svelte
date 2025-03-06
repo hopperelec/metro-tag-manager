@@ -1,12 +1,12 @@
 <script lang="ts">
-  import prettyBytes from "pretty-bytes";
-  import type { Media } from "$lib/types";
+import type { Media } from "$lib/types";
+import prettyBytes from "pretty-bytes";
 
-  export let medias: Media[];
+export let medias: Media[];
 
-  function loadVideo(event: Event) {
-    (event.target as HTMLVideoElement).preload = "metadata";
-  }
+function loadVideo(event: Event) {
+	(event.target as HTMLVideoElement).preload = "metadata";
+}
 </script>
 
 <ul>
