@@ -1,15 +1,5 @@
 import prisma from "$lib/server/prisma";
-
-type Media = {
-  id: number;
-  path: string;
-  size?: number;
-  duration?: number;
-  width?: number;
-  height?: number;
-  contextTags: string[];
-  trainTags: Record<number, string[]>;
-}
+import type { Media } from "$lib/types";
 
 export default async function getClientData(): Promise<{ media: Media[] }> {
   const medias = await prisma.media.findMany({
@@ -35,5 +25,5 @@ export default async function getClientData(): Promise<{ media: Media[] }> {
         }, {} as Record<number, string[]>)
       }
     ))
-  }
+  };
 }

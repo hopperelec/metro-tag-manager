@@ -7,6 +7,7 @@
   import prettyBytes from "pretty-bytes";
   import type { Range } from "$lib/types";
   import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
+  import MediaList from "$lib/components/MediaList.svelte";
 
   export let data: PageData;
 
@@ -26,13 +27,9 @@
     data = await response.json();
   }
 
-  function loadVideo(event: Event) {
-    (event.target as HTMLVideoElement).preload = "metadata";
-  }
-
   function outsideRange(value: number | undefined, possibleRange: Range, selectedRange: Range) {
     if (value === undefined)
-      return selectedRange.min !== possibleRange.min || selectedRange.max !== possibleRange.max
+      return selectedRange.min !== possibleRange.min || selectedRange.max !== possibleRange.max;
     return value < selectedRange.min || value > selectedRange.max;
   }
 
@@ -70,28 +67,28 @@
     </div>
     <div>
       <label for="size">Size</label>
-      <RangeSlider possibleRange={SIZE_RANGE} bind:selectedRange={sizeFilter} render={prettyBytes} />
+      <RangeSlider bind:selectedRange={sizeFilter} possibleRange={SIZE_RANGE} render={prettyBytes} />
     </div>
     <div>
       <label for="width">Width</label>
-      <RangeSlider possibleRange={WIDTH_RANGE} bind:selectedRange={widthFilter} render={px => `${px}px`} />
+      <RangeSlider bind:selectedRange={widthFilter} possibleRange={WIDTH_RANGE} render={px => `${px}px`} />
     </div>
     <div>
       <label for="height">Height</label>
-      <RangeSlider possibleRange={HEIGHT_RANGE} bind:selectedRange={heightFilter} render={px => `${px}px`} />
+      <RangeSlider bind:selectedRange={heightFilter} possibleRange={HEIGHT_RANGE} render={px => `${px}px`} />
     </div>
     <div>
       <label for="duration">Duration</label>
-      <RangeSlider possibleRange={DURATION_RANGE} bind:selectedRange={durationFilter}
+      <RangeSlider bind:selectedRange={durationFilter} possibleRange={DURATION_RANGE}
                    render={(value) => `${Math.floor(value / 60)}:${(value % 60).toString().padStart(2, "0")}`}
       />
     </div>
     <div>
       <label for="numberTrains">Number of trains</label>
-      <RangeSlider possibleRange={NUMBER_TRAINS_RANGE} bind:selectedRange={numberTrainsFilter} />
+      <RangeSlider bind:selectedRange={numberTrainsFilter} possibleRange={NUMBER_TRAINS_RANGE} />
     </div>
     <div>
-      <FormOptionalBoolean label="Has tags" bind:value={hasTagsFilter} />
+      <FormOptionalBoolean bind:value={hasTagsFilter} label="Has tags" />
     </div>
     <div>
       <span>Tags</span>
@@ -101,39 +98,7 @@
   <div id="results">
     <h2>Results</h2>
     <button on:click={refresh}>Refresh</button>
-    <ul>
-      {#each filteredMedia as media (media.id)}
-        <li>
-          <div id="media-item">
-            {#if media.duration === 0}
-              <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
-            {:else}
-              <!-- svelte-ignore a11y-media-has-caption -->
-              <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo} />
-            {/if}
-          </div>
-          <span class="path">{media.path}</span>
-          <span class="size">{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
-          <!-- TODO: Style tags -->
-          <ul class="context-tags">
-            {#each media.contextTags as contextTag}
-              <li>{contextTag}</li>
-            {/each}
-          </ul>
-          <ul class="trains">
-            {#each Object.values(media.trainTags) as train}
-              <li>
-                <ul>
-                  {#each train as trainTag}
-                    <li>{trainTag}</li>
-                  {/each}
-                </ul>
-              </li>
-            {/each}
-          </ul>
-        </li>
-      {/each}
-    </ul>
+    <MediaList medias={filteredMedia} />
   </div>
 </div>
 
@@ -165,32 +130,5 @@
     flex-direction: column;
     align-items: center;
     padding-top: 1em;
-  }
-
-  ul {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));
-    list-style: none;
-    padding: 0;
-    overflow-y: auto;
-  }
-
-  li {
-    display: flex;
-    flex-direction: column;
-    padding: .5em;
-    white-space: nowrap;
-
-    & > span {
-      overflow: clip;
-      text-overflow: ellipsis;
-    }
-  }
-
-  img, video {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
-    background: black;
   }
 </style>
