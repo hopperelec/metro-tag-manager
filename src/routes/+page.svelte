@@ -1,98 +1,92 @@
 <script lang="ts">
-import FilterComponent from "$lib/components/Filter.svelte";
-import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
-import MediaList from "$lib/components/MediaList.svelte";
-import RangeSlider from "$lib/components/RangeSlider.svelte";
-import {
-	DURATION_RANGE,
-	HEIGHT_RANGE,
-	NUMBER_TRAINS_RANGE,
-	SIZE_RANGE,
-	WIDTH_RANGE,
-} from "$lib/constants";
-import { type GroupedFilter, filterGlobal } from "$lib/filters";
-import type { Range } from "$lib/types";
-import prettyBytes from "pretty-bytes";
-import type { PageData } from "./$types";
+  import FilterComponent from "$lib/components/Filter.svelte";
+  import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
+  import MediaList from "$lib/components/MediaList.svelte";
+  import RangeSlider from "$lib/components/RangeSlider.svelte";
+  import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
+  import { filterGlobal, type GroupedFilter } from "$lib/filters";
+  import type { Range } from "$lib/types";
+  import prettyBytes from "pretty-bytes";
+  import type { PageData } from "./$types";
 
-export let data: PageData;
+  export let data: PageData;
 
-let pathFilter = "";
-let pathFilterRegex: RegExp | null;
-$: {
-	try {
-		pathFilterRegex = new RegExp(pathFilter);
-	} catch (e) {
-		pathFilterRegex = null;
-	}
-}
+  let pathFilter = "";
+  let pathFilterRegex: RegExp | null;
+  $: {
+    try {
+      pathFilterRegex = new RegExp(pathFilter);
+    } catch (e) {
+      pathFilterRegex = null;
+    }
+  }
 
-let typeFilter = "all";
-let sizeFilter = SIZE_RANGE;
-let widthFilter = WIDTH_RANGE;
-let heightFilter = HEIGHT_RANGE;
-let durationFilter = DURATION_RANGE;
-let numberTrainsFilter = NUMBER_TRAINS_RANGE;
-let hasTagsFilter: "off" | "ignore" | "on" = "ignore";
-let tagFilter: GroupedFilter;
+  let typeFilter = "all";
+  let sizeFilter = SIZE_RANGE;
+  let widthFilter = WIDTH_RANGE;
+  let heightFilter = HEIGHT_RANGE;
+  let durationFilter = DURATION_RANGE;
+  let numberTrainsFilter = NUMBER_TRAINS_RANGE;
+  let hasTagsFilter: "off" | "ignore" | "on" = "ignore";
+  let tagFilter: GroupedFilter;
 
-let loadingData = false;
+  let loadingData = false;
 
-async function refresh() {
-	if (loadingData) return;
-	loadingData = true;
-	const response = await fetch("refresh");
-	data = await response.json();
-	loadingData = false;
-}
+  async function refresh() {
+    if (loadingData) return;
+    loadingData = true;
+    const response = await fetch("refresh");
+    data = await response.json();
+    loadingData = false;
+  }
 
-function insideRange(
-	value: bigint | number | undefined,
-	possibleRange: Range,
-	selectedRange: Range,
-) {
-	if (value === undefined)
-		return (
-			selectedRange.min === possibleRange.min &&
-			selectedRange.max === possibleRange.max
-		);
-	return value >= selectedRange.min && value <= selectedRange.max;
-}
+  function insideRange(
+    value: bigint | number | undefined,
+    possibleRange: Range,
+    selectedRange: Range
+  ) {
+    if (value === undefined)
+      return (
+        selectedRange.min === possibleRange.min &&
+        selectedRange.max === possibleRange.max
+      );
+    return value >= selectedRange.min && value <= selectedRange.max;
+  }
 
-$: media = data.media
-	// Pre-process some values, so they don't need to be re-calculated whenever the filters change
-	.map((media) => ({
-		...media,
-		type: media.duration === 0 ? "image" : "video",
-		numTrains: Object.keys(media.trainTags).length,
-		numTags:
-			Object.keys(media.contextTags).length +
-			Object.values(media.trainTags).reduce(
-				(acc, tags) => acc + tags.length,
-				0,
-			),
-	}))
-	// Sort by path
-	.sort((a, b) => a.path.localeCompare(b.path));
+  $: media = data.media
+    // Pre-process some values, so they don't need to be re-calculated whenever the filters change
+    .map((media) => ({
+      ...media,
+      type: media.duration === 0 ? "image" : "video",
+      numTrains: Object.keys(media.trainTags).length,
+      numTags:
+        Object.keys(media.contextTags).length +
+        Object.values(media.trainTags).reduce(
+          (acc, tags) => acc + tags.length,
+          0
+        )
+    }))
+    // Sort by path
+    .sort((a, b) => a.path.localeCompare(b.path));
 
-$: filteredMedia = media.filter(
-	(media) =>
-		(!pathFilterRegex || pathFilterRegex.test(media.path)) &&
-		(typeFilter === "all" || media.type === typeFilter) &&
-		insideRange(media.size, SIZE_RANGE, sizeFilter) &&
-		insideRange(media.width, WIDTH_RANGE, widthFilter) &&
-		insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
-		insideRange(media.duration, DURATION_RANGE, durationFilter) &&
-		insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
-		(hasTagsFilter !== "on" || media.numTags > 0) &&
-		(hasTagsFilter !== "off" || media.numTags === 0) &&
-		(!tagFilter ||
-			filterGlobal(
-				tagFilter,
-				media.contextTags,
-				Object.values(media.trainTags),
-			)),
-);
+  $: filteredMedia = media.filter(
+    (media) =>
+      (!pathFilterRegex || pathFilterRegex.test(media.path)) &&
+      (typeFilter === "all" || media.type === typeFilter) &&
+      insideRange(media.size, SIZE_RANGE, sizeFilter) &&
+      insideRange(media.width, WIDTH_RANGE, widthFilter) &&
+      insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
+      insideRange(media.duration, DURATION_RANGE, durationFilter) &&
+      insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
+      (hasTagsFilter !== "on" || media.numTags > 0) &&
+      (hasTagsFilter !== "off" || media.numTags === 0) &&
+      (!tagFilter ||
+        filterGlobal(
+          tagFilter,
+          media.contextTags,
+          Object.values(media.trainTags)
+        ))
+  );
 </script>
 
 <div id="page-container">
@@ -155,11 +149,13 @@ $: filteredMedia = media.filter(
 
   #filters {
     flex: 0 0 20em;
-    padding: 1em;
+    padding: 1em 3ch;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    text-align: center;
 
     & > div {
       display: flex;
@@ -178,7 +174,11 @@ $: filteredMedia = media.filter(
     flex-grow: 1;
     flex-direction: column;
     align-items: center;
-    padding-top: 1em;
+    padding: 1em 0 0 1em;
+
+    & > button {
+      margin-bottom: .5em;
+    }
   }
 
   .loading {
