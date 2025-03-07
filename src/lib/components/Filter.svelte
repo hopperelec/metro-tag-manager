@@ -1,24 +1,24 @@
 <script lang="ts">
-import type { Filter, GroupedFilter } from "$lib/filters";
+  import type { Filter, GroupedFilter } from "$lib/filters";
 
-export let filter: GroupedFilter = {
-	group: true,
-	local: false,
-	or: false,
-	invert: false,
-	filters: [],
-};
-export let odd = false;
+  export let filter: GroupedFilter = {
+    group: true,
+    local: false,
+    or: false,
+    invert: false,
+    filters: []
+  };
+  export let odd = false;
 
-function addFilter(newFilter: Filter) {
-	// Assignment for reactivity
-	filter.filters = [...filter.filters, newFilter];
-}
+  function addFilter(newFilter: Filter) {
+    // Assignment for reactivity
+    filter.filters = [...filter.filters, newFilter];
+  }
 
-function removeFilter(index: number) {
-	// Assignment for reactivity
-	filter.filters = filter.filters.filter((_, i) => i !== index);
-}
+  function removeFilter(index: number) {
+    // Assignment for reactivity
+    filter.filters = filter.filters.filter((_, i) => i !== index);
+  }
 </script>
 
 <div class:odd id="outer-filter">
@@ -95,6 +95,10 @@ function removeFilter(index: number) {
 
   .inner-filter {
     display: flex;
+  }
+
+  button {
+    cursor: pointer;
   }
 
   #add-buttons > button {
