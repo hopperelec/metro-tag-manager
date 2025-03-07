@@ -8,6 +8,8 @@
   import type { Range } from "$lib/types";
   import prettyBytes from "pretty-bytes";
   import type { PageData } from "./$types";
+  import TagList from "$lib/components/TagList.svelte";
+  import TrainList from "$lib/components/TrainList.svelte";
 
   export let data: PageData;
 
@@ -31,6 +33,10 @@
   let tagFilter: GroupedFilter;
 
   let loadingData = false;
+
+  let selectedMediaIds: number[] = [];
+  let contextTagsToAdd = new Set<string>();
+  let trainsToAdd = new Map<number, Set<string>>();
 
   async function refresh() {
     if (loadingData) return;
@@ -137,7 +143,21 @@
   <div class:loading={loadingData} id="results">
     <h2>Results</h2>
     <button disabled={loadingData} on:click={refresh}>Refresh</button>
-    <MediaList medias={filteredMedia} />
+    <h3>Selection</h3>
+    <p>{selectedMediaIds.length}/{filteredMedia.length} selected</p>
+    <div id="tags">
+      <div>
+        <h4>Context tags</h4>
+        <TagList bind:tags={contextTagsToAdd} />
+      </div>
+      <div>
+        <h4>Trains</h4>
+        <TrainList bind:trains={trainsToAdd} />
+      </div>
+    </div>
+    <div id="media-list-container">
+      <MediaList bind:selectedMediaIds medias={filteredMedia} />
+    </div>
   </div>
 </div>
 
@@ -174,7 +194,6 @@
     flex-grow: 1;
     flex-direction: column;
     align-items: center;
-    padding: 1em 0 0 1em;
 
     & > button {
       margin-bottom: .5em;
@@ -187,5 +206,23 @@
     & > * {
       pointer-events: none;
     }
+  }
+
+  #tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    width: 100%;
+
+    & > div {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+  }
+
+  #media-list-container {
+    margin-top: 1em;
   }
 </style>

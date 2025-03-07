@@ -7,8 +7,8 @@ export type Media = {
   duration?: number;
   width?: number;
   height?: number;
-  contextTags: string[];
-  trainTags: Record<number, string[]>;
+  contextTags: Set<string>;
+  trainTags: Map<number, Set<string>>;
 };
 
 export type AutocompleteTag = {
