@@ -3,10 +3,23 @@
   import prettyBytes from "pretty-bytes";
   import TagList from "$lib/components/TagList.svelte";
   import TrainList from "$lib/components/TrainList.svelte";
+  import type { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-  export let medias: Media[];
   let lastSelectedIndex: number | null = null;
-  export let selectedMediaIds: number[] = [];
+
+  let { medias, selectedMediaIds = $bindable([]) }: {
+    medias: (Media & {
+      contextTags: {
+        get: () => SvelteSet<string>,
+        set: (value: SvelteSet<string>) => void
+      },
+      trainTags: {
+        get: () => SvelteMap<number, Set<string>>,
+        set: (value: SvelteMap<number, Set<string>>) => void
+      }
+    })[];
+    selectedMediaIds?: number[];
+  } = $props();
 
   function loadVideo(event: Event) {
     (event.target as HTMLVideoElement).preload = "metadata";
@@ -49,22 +62,23 @@
 <ul>
   {#each medias as media, index (media.id)}
     <li>
-      <button
-        type="button"
+      <div
         class:selected={selectedMediaIds.includes(media.id)}
-        on:click={(event) => handleClick(index, event)}
-        on:dblclick={() => handleDoubleClick(media)}
-        on:keydown={(event) => {
+        onclick={(event) => handleClick(index, event)}
+        ondblclick={() => handleDoubleClick(media)}
+        onkeydown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             handleClick(index, event);
           }
         }}
+        role="button"
+        tabindex="0"
       >
         {#if media.duration === 0}
           <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
         {:else}
-          <!-- svelte-ignore a11y-media-has-caption -->
-          <video src={`media/${media.path}`} controls preload="none" on:mouseenter={loadVideo}></video>
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video src={`media/${media.path}`} controls preload="none" onmouseenter={loadVideo}></video>
         {/if}
         <div id="details">
           <h4>Path</h4>
@@ -72,11 +86,11 @@
           <h4>Size</h4>
           <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
           <h4>Context tags</h4>
-          <TagList bind:tags={media.contextTags} />
+          <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
           <h4>Train tags</h4>
-          <TrainList bind:trains={media.trainTags} />
+          <TrainList bind:trains={media.trainTags.get, media.trainTags.set} />
         </div>
-      </button>
+      </div>
     </li>
   {/each}
 </ul>
@@ -90,10 +104,11 @@
     overflow-y: auto;
   }
 
-  button {
+  li > div {
     display: flex;
     flex-direction: column;
     padding: calc(.5em - 1px); /* 1px border */
+    box-sizing: border-box;
     cursor: pointer;
     background: none;
     border: 1px solid transparent; /* Prevents jumping when becoming selected */

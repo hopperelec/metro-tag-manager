@@ -1,27 +1,30 @@
 <script lang="ts">
-  export let tags: Set<string>;
+  import type { SvelteSet } from "svelte/reactivity";
 
-  let newTag = "";
+  let { tags = $bindable() }: {
+    tags: SvelteSet<string>;
+  } = $props();
+
+  let newTag = $state("");
 </script>
 
 <ul>
   {#each tags as tag}
     <li>
       <button type="button" title="Delete"
-              on:click|stopPropagation={() => {
+              onclick={(event) => {
+                event.stopPropagation();
                 tags.delete(tag);
-                tags = tags; // trigger reactivity
               }}
-      >
-        {tag}
-      </button>
+      >{tag}</button>
     </li>
   {/each}
   <li>
     <input
       bind:value={newTag}
-      on:click|stopPropagation
-      on:keydown|stopPropagation={(event) => {
+      onclick={(event) => event.stopPropagation()}
+      onkeydown={(event) => {
+        event.stopPropagation();
         if (event.key === "Enter") {
           const newTagTrimmed = newTag.trim();
           if (newTagTrimmed !== "") {

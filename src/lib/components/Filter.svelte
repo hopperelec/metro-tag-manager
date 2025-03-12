@@ -1,14 +1,19 @@
 <script lang="ts">
+  import FilterComponent from "./Filter.svelte";
   import type { Filter, GroupedFilter } from "$lib/filters";
 
-  export let filter: GroupedFilter = {
-    group: true,
-    local: false,
-    or: false,
-    invert: false,
-    filters: []
-  };
-  export let odd = false;
+  let {
+    filter = $bindable({
+      group: true,
+      local: false,
+      or: false,
+      invert: false,
+      filters: []
+    }), odd = false
+  }: {
+    filter?: GroupedFilter;
+    odd?: boolean;
+  } = $props();
 
   function addFilter(newFilter: Filter) {
     // Assignment for reactivity
@@ -30,31 +35,32 @@
         <li>
           <div class="filter-toggles">
             {#if i !== 0}
-              <button type="button" on:click={() => filter.or = !filter.or}>{filter.or ? "OR" : "AND"}</button>
+              <button type="button" onclick={() => filter.or = !filter.or}>{filter.or ? "OR" : "AND"}</button>
             {/if}
-            <button on:click={() => innerFilter.invert = !innerFilter.invert}
+            <button onclick={() => innerFilter.invert = !innerFilter.invert}
                     type="button">{innerFilter.invert ? "IS NOT" : "IS"}</button>
           </div>
           <div class="inner-filter">
-            {#if innerFilter.group}
-              <svelte:self bind:filter={innerFilter} odd={!odd} />
+            <!-- Use filter.filters[i] to allow type-safe binding -->
+            {#if filter.filters[i].group}
+              <FilterComponent bind:filter={filter.filters[i]} odd={!odd} />
             {:else}
-              <input bind:value={innerFilter.tag} type="text" />
+              <input bind:value={filter.filters[i].tag} type="text" />
             {/if}
-            <button type="button" class="remove-button" on:click={() => removeFilter(i)}>X</button>
+            <button type="button" class="remove-button" onclick={() => removeFilter(i)}>X</button>
           </div>
         </li>
       {/each}
     {/if}
   </ul>
   <div id="add-buttons">
-    <button on:click={() => addFilter({group: false, invert: false, tag: ""})} type="button">Add tag</button>
-    <button on:click={() => addFilter({group: true, local: filter.local, invert: false, or: false, filters: []})}
+    <button onclick={() => addFilter({group: false, invert: false, tag: ""})} type="button">Add tag</button>
+    <button onclick={() => addFilter({group: true, local: filter.local, invert: false, or: false, filters: []})}
             type="button">
       Add group
     </button>
     {#if !filter.local}
-      <button on:click={() => addFilter({group: true, local: true, invert: false, or: false, filters: []})}
+      <button onclick={() => addFilter({group: true, local: true, invert: false, or: false, filters: []})}
               type="button">
         Add train
       </button>

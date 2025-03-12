@@ -1,7 +1,9 @@
 <script lang="ts">
-  export let name: string | undefined = undefined;
-  export let label: string;
-  export let value: "off" | "ignore" | "on";
+  let { name = undefined, label, value = $bindable() }: {
+    name?: string | undefined;
+    label: string;
+    value: "off" | "ignore" | "on";
+  } = $props();
 </script>
 
 <fieldset>

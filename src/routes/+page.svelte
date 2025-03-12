@@ -7,36 +7,41 @@
   import { filterGlobal, type GroupedFilter } from "$lib/filters";
   import type { Range } from "$lib/types";
   import prettyBytes from "pretty-bytes";
-  import type { PageData } from "./$types";
   import TagList from "$lib/components/TagList.svelte";
   import TrainList from "$lib/components/TrainList.svelte";
+  import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-  export let data: PageData;
+  let { data } = $props();
 
-  let pathFilter = "";
-  let pathFilterRegex: RegExp | null;
-  $: {
+  let pathFilter = $state("");
+  let pathFilterRegex: RegExp | null = $derived.by(() => {
     try {
-      pathFilterRegex = new RegExp(pathFilter);
-    } catch (e) {
-      pathFilterRegex = null;
+      return new RegExp(pathFilter);
+    } catch {
+      return null;
     }
-  }
+  });
 
-  let typeFilter = "all";
-  let sizeFilter = SIZE_RANGE;
-  let widthFilter = WIDTH_RANGE;
-  let heightFilter = HEIGHT_RANGE;
-  let durationFilter = DURATION_RANGE;
-  let numberTrainsFilter = NUMBER_TRAINS_RANGE;
-  let hasTagsFilter: "off" | "ignore" | "on" = "ignore";
-  let tagFilter: GroupedFilter;
+  let typeFilter = $state("all");
+  let sizeFilter = $state(SIZE_RANGE);
+  let widthFilter = $state(WIDTH_RANGE);
+  let heightFilter = $state(HEIGHT_RANGE);
+  let durationFilter = $state(DURATION_RANGE);
+  let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
+  let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
+  let tagFilter: GroupedFilter = $state({
+    group: true,
+    local: false,
+    or: false,
+    invert: false,
+    filters: []
+  });
 
-  let loadingData = false;
+  let loadingData = $state(false);
 
-  let selectedMediaIds: number[] = [];
-  let contextTagsToAdd = new Set<string>();
-  let trainsToAdd = new Map<number, Set<string>>();
+  let selectedMediaIds: number[] = $state([]);
+  let contextTagsToAdd = $state(new SvelteSet<string>());
+  let trainsToAdd = $state(new SvelteMap<number, Set<string>>());
 
   async function refresh() {
     if (loadingData) return;
@@ -59,23 +64,39 @@
     return value >= selectedRange.min && value <= selectedRange.max;
   }
 
-  $: media = data.media
+  let media = $derived(data.media
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
-    .map((media) => ({
-      ...media,
-      type: media.duration === 0 ? "image" : "video",
-      numTrains: Object.keys(media.trainTags).length,
-      numTags:
-        Object.keys(media.contextTags).length +
-        Object.values(media.trainTags).reduce(
-          (acc, tags) => acc + tags.length,
-          0
-        )
-    }))
+    .map((media) => {
+      let contextTags = $state(new SvelteSet(media.contextTags));
+      let trainTags = $state(new SvelteMap(media.trainTags));
+      return {
+        ...media,
+        contextTags: {
+          get: () => contextTags,
+          set: (tags: SvelteSet<string>) => {
+            contextTags = tags;
+          }
+        },
+        trainTags: {
+          get: () => trainTags,
+          set: (tags: SvelteMap<number, Set<string>>) => {
+            trainTags = tags;
+          }
+        },
+        type: media.duration === 0 ? "image" : "video",
+        numTrains: Object.keys(media.trainTags).length,
+        numTags:
+          Object.keys(media.contextTags).length +
+          Object.values(media.trainTags).reduce(
+            (acc, tags) => acc + tags.length,
+            0
+          )
+      };
+    })
     // Sort by path
-    .sort((a, b) => a.path.localeCompare(b.path));
+    .sort((a, b) => a.path.localeCompare(b.path)));
 
-  $: filteredMedia = media.filter(
+  let filteredMedia = $derived(media.filter(
     (media) =>
       (!pathFilterRegex || pathFilterRegex.test(media.path)) &&
       (typeFilter === "all" || media.type === typeFilter) &&
@@ -89,10 +110,10 @@
       (!tagFilter ||
         filterGlobal(
           tagFilter,
-          media.contextTags,
-          Object.values(media.trainTags)
+          media.contextTags.get(),
+          Object.values(media.trainTags.get())
         ))
-  );
+  ));
 </script>
 
 <div id="page-container">
@@ -142,7 +163,7 @@
   </div>
   <div class:loading={loadingData} id="results">
     <h2>Results</h2>
-    <button disabled={loadingData} on:click={refresh}>Refresh</button>
+    <button disabled={loadingData} onclick={refresh}>Refresh</button>
     <h3>Selection</h3>
     <p>{selectedMediaIds.length}/{filteredMedia.length} selected</p>
     <div id="tags">

@@ -1,73 +1,31 @@
 <!-- Adapted from https://svelte.dev/playground/75d34e46cbe64bb68b7c2ac2c61931ce -->
 
 <script lang="ts">
-  export let possibleRange = { min: 0, max: 100 };
-  $: possibleWidth = possibleRange.max - possibleRange.min;
-  $: possibleMinPosition = 100 * possibleRange.min;
+  let {
+    possibleRange = { min: 0, max: 100 },
+    selectedRange = $bindable(possibleRange),
+    render = (value) => value.toString()
+  }: {
+    possibleRange?: { min: number; max: number };
+    selectedRange?: { min: number; max: number };
+    render?: (value: number) => string;
+  } = $props();
 
-  export let selectedRange = possibleRange;
-  $: selectedMinPosition =
-    possibleMinPosition + (100 * selectedRange.min) / possibleWidth;
-  $: selectedMaxPosition =
-    possibleMinPosition + (100 * selectedRange.max) / possibleWidth;
+  let slider: HTMLElement | undefined = $state();
+  let activeHandle: "min" | "max" | undefined = $state();
 
-  export let render: (value: number) => string = (value) => value.toString();
+  function setActiveHandle(side: "min" | "max") {
+    activeHandle = side;
 
-  let slider: HTMLElement;
-  let minHandle: HTMLElement;
-  let maxHandle: HTMLElement;
-  let activeHandle: undefined | HTMLElement;
-
-  function clamp(value: number, min: number, max: number) {
-    return Math.min(max, Math.max(min, value));
-  }
-
-  function draggable(node: HTMLElement) {
-    function handleMousedown() {
-      activeHandle = node;
-      window.addEventListener("mousemove", handleMousemove);
-      window.addEventListener("mouseup", handleMouseup);
-      window.addEventListener("touchmove", handleMousemove);
-      window.addEventListener("touchend", handleMouseup);
-    }
-
-    function handleMousemove(event: MouseEvent | TouchEvent) {
-      const { clientX, clientY } =
-        event.type === "touchstart"
-          ? (event as TouchEvent).changedTouches[0]
-          : (event as MouseEvent);
-      node.dispatchEvent(
-        new CustomEvent("dragmove", {
-          detail: { x: clientX, y: clientY }
-        })
-      );
-    }
-
-    function handleMouseup() {
-      activeHandle = undefined;
-      window.removeEventListener("mousemove", handleMousemove);
-      window.removeEventListener("mouseup", handleMouseup);
-      window.removeEventListener("touchmove", handleMousemove);
-      window.removeEventListener("touchend", handleMouseup);
-    }
-
-    node.addEventListener("mousedown", handleMousedown);
-    node.addEventListener("touchstart", handleMousedown);
-    return {
-      destroy() {
-        node.removeEventListener("mousedown", handleMousedown);
-        node.removeEventListener("touchstart", handleMousedown);
-      }
-    };
-  }
-
-  function setHandlePosition(side: "min" | "max") {
-    return (event: CustomEvent<{ x: number }>) => {
-      const { left, right } = slider.getBoundingClientRect();
-      const value = clamp(
-        Math.round((possibleWidth * (event.detail.x - left)) / (right - left)),
-        possibleRange.min,
-        possibleRange.max
+    function handleMouseMove(event: MouseEvent) {
+      if (!slider) return;
+      const rect = slider.getBoundingClientRect();
+      const value = Math.min(
+        possibleRange.max,
+        Math.max(
+          possibleRange.min,
+          Math.round(possibleWidth * (event.clientX - rect.left) / rect.width)
+        )
       );
       if (side === "min") {
         selectedRange = {
@@ -80,8 +38,23 @@
           max: value
         };
       }
-    };
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   }
+
+  let possibleWidth = $derived(possibleRange.max - possibleRange.min);
+  let possibleMinPosition = $derived(100 * possibleRange.min);
+  let selectedMinPosition =
+    $derived(possibleMinPosition + (100 * selectedRange.min) / possibleWidth);
+  let selectedMaxPosition =
+    $derived(possibleMinPosition + (100 * selectedRange.max) / possibleWidth);
 </script>
 
 <div id="container">
@@ -92,22 +65,30 @@
       style:right={`${100 - selectedMaxPosition}%`}
     ></div>
     <div
-      bind:this={minHandle}
+      aria-valuemax={possibleRange.max}
+      aria-valuemin={possibleRange.min}
+      aria-valuenow={selectedRange.min}
       class="handle"
-      class:active={activeHandle === minHandle}
-      on:dragmove|preventDefault={setHandlePosition("min")}
+      class:active={activeHandle === "min"}
+      onmousedown={() => setActiveHandle("min")}
+      ontouchstart={() => setActiveHandle("min")}
+      role="slider"
       style:--value={`'${render(selectedRange.min)}'`}
       style:left={`${selectedMinPosition}%`}
-      use:draggable
+      tabindex="0"
     ></div>
     <div
-      bind:this={maxHandle}
+      aria-valuemax={possibleRange.max}
+      aria-valuemin={possibleRange.min}
+      aria-valuenow={selectedRange.max}
       class="handle"
-      class:active={activeHandle === maxHandle}
-      on:dragmove|preventDefault={setHandlePosition("max")}
+      class:active={activeHandle === "max"}
+      onmousedown={() => setActiveHandle("max")}
+      ontouchstart={() => setActiveHandle("max")}
+      role="slider"
       style:--value={`'${render(selectedRange.max)}'`}
       style:left={`${selectedMaxPosition}%`}
-      use:draggable
+      tabindex="0"
     ></div>
   </div>
 </div>
