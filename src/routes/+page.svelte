@@ -5,11 +5,11 @@
   import RangeSlider from "$lib/components/RangeSlider.svelte";
   import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
   import { filterGlobal, type GroupedFilter } from "$lib/filters";
-  import type { Range, ClientMedia, ClientTrains } from "$lib/types";
+  import type { Range, ClientMedia } from "$lib/types";
   import prettyBytes from "pretty-bytes";
   import TrainList from "$lib/components/TrainList.svelte";
   import PartialTagList from "$lib/components/PartialTagList.svelte";
-  import { SvelteMap, SvelteSet } from "svelte/reactivity";
+  import { SvelteSet } from "svelte/reactivity";
 
   let { data } = $props();
 
@@ -63,17 +63,17 @@
 
   function addTagToSelectedMedia(tag: string) {
     for (const media of selectedMedia) {
-      media.contextTags.set(new SvelteSet([...media.contextTags.get(), tag]));
+      media.contextTags.get().add(tag);
     }
   }
 
   function removeTagFromSelectedMedia(tag: string) {
     for (const media of selectedMedia) {
-      media.contextTags.set(new SvelteSet([...media.contextTags.get()].filter(t => t !== tag)));
+      media.contextTags.get().delete(tag);
     }
   }
 
-  let trainsToAdd: ClientTrains = $state(new SvelteMap());
+  let trainsToAdd: SvelteSet<string>[] = $state([]);
 
   async function refresh() {
     if (loadingData) return;
@@ -100,10 +100,7 @@
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
     .map((media) => {
       let contextTags = $state(new SvelteSet(media.contextTags));
-      let trainTags = $state(new SvelteMap(
-        media.trainTags.entries()
-          .map(([k, v]) => [k, new SvelteSet(v)])
-      ));
+      let trainTags = $state(media.trainTags.map(v => new SvelteSet(v)));
       return {
         ...media,
         contextTags: {
@@ -114,18 +111,13 @@
         },
         trainTags: {
           get: () => trainTags,
-          set: (tags: ClientTrains) => {
+          set: (tags: SvelteSet<string>[]) => {
             trainTags = tags;
           }
         },
         type: (media.duration === 0 ? "image" : "video") as "image" | "video",
-        numTrains: Object.keys(media.trainTags).length,
-        numTags:
-          Object.keys(media.contextTags).length +
-          Object.values(media.trainTags).reduce(
-            (acc, tags) => acc + tags.length,
-            0
-          )
+        numTrains: media.trainTags.length,
+        hasTags: media.trainTags.some(train => train.size !== 0)
       };
     })
     // Sort by path
@@ -140,13 +132,13 @@
       insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
       insideRange(media.duration, DURATION_RANGE, durationFilter) &&
       insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
-      (hasTagsFilter !== "on" || media.numTags > 0) &&
-      (hasTagsFilter !== "off" || media.numTags === 0) &&
+      (hasTagsFilter !== "on" || media.hasTags) &&
+      (hasTagsFilter !== "off" || !media.hasTags) &&
       (!tagFilter ||
         filterGlobal(
           tagFilter,
           media.contextTags.get(),
-          Object.values(media.trainTags.get())
+          media.trainTags.get()
         ))
   ));
 </script>
@@ -200,7 +192,7 @@
     <h2>Results</h2>
     <button disabled={loadingData} onclick={refresh}>Refresh</button>
     <h3>Selection</h3>
-    <p>{selectedContextTags.length}/{filteredMedia.length} selected</p>
+    <p>{selectedMedia.length}/{filteredMedia.length} selected</p>
     <div id="tags">
       <div>
         <h4>Context tags</h4>
@@ -211,11 +203,26 @@
                           removeTag={removeTagFromSelectedMedia}
                           tags={selectedContextTags}
           />
+          <p>Added or removed tags will automatically be added or removed too selected media</p>
         {/if}
       </div>
       <div>
         <h4>Trains</h4>
         <TrainList bind:trains={trainsToAdd} />
+        <div id="train-buttons">
+          <button id="add-trains-to-selection"
+                  onclick={() => {
+                    for (const media of selectedMedia) {
+                      media.trainTags.get().push(...trainsToAdd)
+                    }
+                  }}
+                  disabled={trainsToAdd.length === 0}
+          >Add to selection</button>
+          <button id="clear-trains"
+                  onclick={() => trainsToAdd = []}
+                  disabled={trainsToAdd.length === 0}
+          >Clear</button>
+        </div>
       </div>
     </div>
     <div id="media-list-container">
@@ -269,6 +276,21 @@
     & > * {
       pointer-events: none;
     }
+  }
+
+  #train-buttons {
+    display: flex;
+    margin: .5em;
+  }
+
+  #add-trains-to-selection {
+    background-color: #9f9;
+    margin-right: .25em;
+  }
+
+  #clear-trains {
+    background-color: #f99;
+    margin-left: .25em;
   }
 
   #tags {

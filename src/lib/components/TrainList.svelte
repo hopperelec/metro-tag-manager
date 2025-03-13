@@ -1,32 +1,30 @@
 <script lang="ts">
   import TagList from "$lib/components/TagList.svelte";
-  import { SvelteSet } from "svelte/reactivity";
-  import type { ClientTrains } from "$lib/types";
+  import { SvelteSet, type SvelteSet as SvelteSetType } from "svelte/reactivity";
 
   let { trains = $bindable() }: {
-    trains: ClientTrains;
+    trains: SvelteSetType<string>[];
   } = $props();
-  let nextIndex = $derived(trains.size === 0 ? 1 : Math.max(...trains.keys()) + 1);
 </script>
 
 <div id="container">
   <ul>
-    {#each trains.entries() as [index, train]}
+    {#each trains as _, trainIndex}
       <li>
         <button type="button" onclick={event => {
           event.stopPropagation();
-          trains.delete(index);
+          trains.splice(trainIndex, 1);
         }}>
           <span>🚂</span>
           <span>❌</span>
         </button>
-        <TagList bind:tags={() => train, (v) => trains.set(index, v)} />
+        <TagList bind:tags={trains[trainIndex]} />
       </li>
     {/each}
   </ul>
   <button onclick={event => {
     event.stopPropagation();
-    trains.set(nextIndex, new SvelteSet());
+    trains.push(new SvelteSet());
   }}>
     Add train
   </button>

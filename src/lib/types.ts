@@ -1,4 +1,4 @@
-import type { SvelteMap, SvelteSet } from "svelte/reactivity";
+import type { SvelteSet } from "svelte/reactivity";
 
 export type Range = { min: number; max: number };
 
@@ -13,10 +13,8 @@ interface BaseMedia {
 
 export type ServerMedia = BaseMedia & {
   contextTags: Set<string>;
-  trainTags: Map<number, Set<string>>;
+  trainTags: Set<string>[];
 };
-
-export type ClientTrains = SvelteMap<number, SvelteSet<string>>;
 
 export type ClientMedia = BaseMedia & {
   contextTags: {
@@ -24,12 +22,12 @@ export type ClientMedia = BaseMedia & {
     set: (value: SvelteSet<string>) => void
   },
   trainTags: {
-    get: () => ClientTrains,
-    set: (value: ClientTrains) => void
+    get: () => SvelteSet<string>[],
+    set: (value: SvelteSet<string>[]) => void
   },
   type: "image" | "video";
   numTrains: number;
-  numTags: number;
+  hasTags: boolean;
 }
 
 export type AutocompleteTag = {

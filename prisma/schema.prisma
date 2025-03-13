@@ -22,22 +22,20 @@ model Media {
 }
 
 model ContextTag {
-  id Int @id @default(autoincrement())
-
   mediaId Int
   media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
   tag String
+
+  @@id([mediaId, tag])
 }
 
 model TrainTag {
-  id Int @id @default(autoincrement())
-
   mediaId Int
   media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
   trainId Int
   tag     String
 
-  @@unique([mediaId, trainId, tag])
+  @@id([mediaId, trainId, tag])
 }
