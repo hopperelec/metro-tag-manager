@@ -1,9 +1,10 @@
 <script lang="ts">
   import TagList from "$lib/components/TagList.svelte";
-  import type { SvelteMap } from "svelte/reactivity";
+  import { SvelteSet } from "svelte/reactivity";
+  import type { ClientTrains } from "$lib/types";
 
   let { trains = $bindable() }: {
-    trains: SvelteMap<number, Set<string>>;
+    trains: ClientTrains;
   } = $props();
   let nextIndex = $derived(trains.size === 0 ? 1 : Math.max(...trains.keys()) + 1);
 </script>
@@ -25,7 +26,7 @@
   </ul>
   <button onclick={event => {
     event.stopPropagation();
-    trains.set(nextIndex, new Set());
+    trains.set(nextIndex, new SvelteSet());
   }}>
     Add train
   </button>

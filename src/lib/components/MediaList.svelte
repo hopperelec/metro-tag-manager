@@ -1,60 +1,55 @@
 <script lang="ts">
-  import type { Media } from "$lib/types";
+  import type { ClientMedia } from "$lib/types";
   import prettyBytes from "pretty-bytes";
   import TagList from "$lib/components/TagList.svelte";
   import TrainList from "$lib/components/TrainList.svelte";
-  import type { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   let lastSelectedIndex: number | null = null;
 
-  let { medias, selectedMediaIds = $bindable([]) }: {
-    medias: (Media & {
-      contextTags: {
-        get: () => SvelteSet<string>,
-        set: (value: SvelteSet<string>) => void
-      },
-      trainTags: {
-        get: () => SvelteMap<number, Set<string>>,
-        set: (value: SvelteMap<number, Set<string>>) => void
-      }
-    })[];
-    selectedMediaIds?: number[];
+  let { medias, selectedMedia = $bindable([]) }: {
+    medias: ClientMedia[];
+    selectedMedia?: ClientMedia[];
   } = $props();
 
   function loadVideo(event: Event) {
     (event.target as HTMLVideoElement).preload = "metadata";
   }
 
+  function isSelected(media: ClientMedia) {
+    // Since media is a proxy, we can't use selectedMedia.includes(media)
+    return selectedMedia.some(selected => selected.id === media.id);
+  }
+
   function handleClick(index: number, event: { ctrlKey: boolean, shiftKey: boolean }) {
     const media = medias[index];
-    const isSelected = selectedMediaIds.includes(media.id);
+    const selected = isSelected(media);
 
     if (event.ctrlKey) {
-      if (isSelected) {
-        selectedMediaIds = selectedMediaIds.filter(id => id !== media.id);
+      if (selected) {
+        selectedMedia = selectedMedia.filter(selected => selected.id !== media.id);
         lastSelectedIndex = null;
       } else {
-        selectedMediaIds = [...selectedMediaIds, media.id];
+        selectedMedia.push(media);
         lastSelectedIndex = index;
       }
     } else if (event.shiftKey && lastSelectedIndex !== null) {
       const start = Math.min(lastSelectedIndex, index);
       const end = Math.max(lastSelectedIndex, index);
-      selectedMediaIds = medias.slice(start, end + 1).map(({ id }) => id);
+      selectedMedia = medias.slice(start, end + 1);
       lastSelectedIndex = index;
     } else {
-      if (selectedMediaIds.length === 1 && isSelected) {
-        selectedMediaIds = [];
+      if (selectedMedia.length === 1 && selected) {
+        selectedMedia = [];
         lastSelectedIndex = null;
       } else {
-        selectedMediaIds = [media.id];
+        selectedMedia = [media];
         lastSelectedIndex = index;
       }
     }
   }
 
-  function handleDoubleClick(media: Media) {
-    selectedMediaIds = [];
+  function handleDoubleClick(media: ClientMedia) {
+    selectedMedia = [];
     // TODO: Fullscreen
   }
 </script>
@@ -63,7 +58,7 @@
   {#each medias as media, index (media.id)}
     <li>
       <div
-        class:selected={selectedMediaIds.includes(media.id)}
+        class:selected={isSelected(media)}
         onclick={(event) => handleClick(index, event)}
         ondblclick={() => handleDoubleClick(media)}
         onkeydown={(event) => {

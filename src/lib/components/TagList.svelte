@@ -11,7 +11,7 @@
 <ul>
   {#each tags as tag}
     <li>
-      <button type="button" title="Delete"
+      <button type="button" title="Remove"
               onclick={(event) => {
                 event.stopPropagation();
                 tags.delete(tag);

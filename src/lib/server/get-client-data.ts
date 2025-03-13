@@ -1,7 +1,7 @@
 import prisma from "$lib/server/prisma";
-import type { Media } from "$lib/types";
+import type { ServerMedia } from "$lib/types";
 
-export default async function getClientData(): Promise<{ media: Media[] }> {
+export default async function getClientData(): Promise<{ media: ServerMedia[] }> {
   const medias = await prisma.media.findMany({
     include: {
       contextTags: { select: { tag: true } },

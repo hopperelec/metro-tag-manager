@@ -5,10 +5,10 @@
   import RangeSlider from "$lib/components/RangeSlider.svelte";
   import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
   import { filterGlobal, type GroupedFilter } from "$lib/filters";
-  import type { Range } from "$lib/types";
+  import type { Range, ClientMedia, ClientTrains } from "$lib/types";
   import prettyBytes from "pretty-bytes";
-  import TagList from "$lib/components/TagList.svelte";
   import TrainList from "$lib/components/TrainList.svelte";
+  import PartialTagList from "$lib/components/PartialTagList.svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   let { data } = $props();
@@ -39,9 +39,41 @@
 
   let loadingData = $state(false);
 
-  let selectedMediaIds: number[] = $state([]);
-  let contextTagsToAdd = $state(new SvelteSet<string>());
-  let trainsToAdd = $state(new SvelteMap<number, Set<string>>());
+  let selectedMedia: ClientMedia[] = $state([]);
+  let selectedContextTags: { tag: string, partial: boolean }[] = $derived.by(() => {
+    if (selectedMedia.length === 0) return [];
+    const [firstMedia, ...restMedia] = selectedMedia;
+    const inAll = new Set(firstMedia.contextTags.get());
+    const inSome = new Set(firstMedia.contextTags.get());
+    for (const media of restMedia) {
+      for (const tag of inAll) {
+        if (!media.contextTags.get().has(tag)) {
+          inAll.delete(tag);
+        }
+      }
+      for (const tag of media.contextTags.get()) {
+        inSome.add(tag);
+      }
+    }
+    return [...inSome].map(tag => ({
+      tag,
+      partial: !inAll.has(tag)
+    }));
+  });
+
+  function addTagToSelectedMedia(tag: string) {
+    for (const media of selectedMedia) {
+      media.contextTags.set(new SvelteSet([...media.contextTags.get(), tag]));
+    }
+  }
+
+  function removeTagFromSelectedMedia(tag: string) {
+    for (const media of selectedMedia) {
+      media.contextTags.set(new SvelteSet([...media.contextTags.get()].filter(t => t !== tag)));
+    }
+  }
+
+  let trainsToAdd: ClientTrains = $state(new SvelteMap());
 
   async function refresh() {
     if (loadingData) return;
@@ -64,11 +96,14 @@
     return value >= selectedRange.min && value <= selectedRange.max;
   }
 
-  let media = $derived(data.media
+  let media: ClientMedia[] = $derived(data.media
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
     .map((media) => {
       let contextTags = $state(new SvelteSet(media.contextTags));
-      let trainTags = $state(new SvelteMap(media.trainTags));
+      let trainTags = $state(new SvelteMap(
+        media.trainTags.entries()
+          .map(([k, v]) => [k, new SvelteSet(v)])
+      ));
       return {
         ...media,
         contextTags: {
@@ -79,11 +114,11 @@
         },
         trainTags: {
           get: () => trainTags,
-          set: (tags: SvelteMap<number, Set<string>>) => {
+          set: (tags: ClientTrains) => {
             trainTags = tags;
           }
         },
-        type: media.duration === 0 ? "image" : "video",
+        type: (media.duration === 0 ? "image" : "video") as "image" | "video",
         numTrains: Object.keys(media.trainTags).length,
         numTags:
           Object.keys(media.contextTags).length +
@@ -165,11 +200,18 @@
     <h2>Results</h2>
     <button disabled={loadingData} onclick={refresh}>Refresh</button>
     <h3>Selection</h3>
-    <p>{selectedMediaIds.length}/{filteredMedia.length} selected</p>
+    <p>{selectedContextTags.length}/{filteredMedia.length} selected</p>
     <div id="tags">
       <div>
         <h4>Context tags</h4>
-        <TagList bind:tags={contextTagsToAdd} />
+        {#if selectedMedia.length === 0}
+          <p>Select some media first</p>
+        {:else}
+          <PartialTagList addTag={addTagToSelectedMedia}
+                          removeTag={removeTagFromSelectedMedia}
+                          tags={selectedContextTags}
+          />
+        {/if}
       </div>
       <div>
         <h4>Trains</h4>
@@ -177,7 +219,7 @@
       </div>
     </div>
     <div id="media-list-container">
-      <MediaList bind:selectedMediaIds medias={filteredMedia} />
+      <MediaList bind:selectedMedia medias={filteredMedia} />
     </div>
   </div>
 </div>
@@ -245,5 +287,6 @@
 
   #media-list-container {
     margin-top: 1em;
+    width: 100%;
   }
 </style>
