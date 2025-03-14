@@ -4,40 +4,72 @@
   let {
     possibleRange = { min: 0, max: 100 },
     selectedRange = $bindable(possibleRange),
-    render = (value) => value.toString()
+    render = (value) => value.toString(),
+    parse = (value) => +value
   }: {
     possibleRange?: { min: number; max: number };
     selectedRange?: { min: number; max: number };
     render?: (value: number) => string;
+    parse?: (value: string) => number;
   } = $props();
+  
+  type Side = "min" | "max";
 
   let slider: HTMLElement | undefined = $state();
-  let activeHandle: "min" | "max" | undefined = $state();
+  let inputElms: {
+    min: HTMLInputElement | undefined;
+    max: HTMLInputElement | undefined;
+  } = $state({
+    min: undefined,
+    max: undefined
+  });
 
-  function setActiveHandle(side: "min" | "max") {
+  let activeHandle: Side | undefined = $state();
+  let editingHandle: Side | undefined = $state();
+  let renderedValues = $derived({
+    min: render(selectedRange.min),
+    max: render(selectedRange.max)
+  })
+  let inputString: string = $state("");
+  let shake = $state(false);
+
+  function clamp(value: number) {
+    return Math.min(possibleRange.max, Math.max(possibleRange.min, value));
+  }
+
+  function calculateHandlePosition(side: Side) {
+    return possibleMinPosition + (100 * clamp(selectedRange[side], possibleRange)) / possibleWidth;
+  }
+  
+  let possibleWidth = $derived(possibleRange.max - possibleRange.min);
+  let possibleMinPosition = $derived(100 * possibleRange.min);
+  let selectedPosition = $derived({
+    min: calculateHandlePosition("min"),
+    max: calculateHandlePosition("max")
+  })
+
+  function setSelectedValue(side: Side, value: number) {
+    if (side === "min") {
+      selectedRange = {
+        min: value,
+        max: Math.max(selectedRange.max, value)
+      };
+    } else {
+      selectedRange = {
+        min: Math.min(selectedRange.min, value),
+        max: value
+      };
+    }
+  }
+
+  function setActiveHandle(side: Side) {
     activeHandle = side;
 
     function handleMouseMove(event: MouseEvent) {
       if (!slider) return;
       const rect = slider.getBoundingClientRect();
-      const value = Math.min(
-        possibleRange.max,
-        Math.max(
-          possibleRange.min,
-          Math.round(possibleWidth * (event.clientX - rect.left) / rect.width)
-        )
-      );
-      if (side === "min") {
-        selectedRange = {
-          min: value,
-          max: Math.max(selectedRange.max, value)
-        };
-      } else {
-        selectedRange = {
-          min: Math.min(selectedRange.min, value),
-          max: value
-        };
-      }
+      const value = clamp(Math.round(possibleWidth * (event.clientX - rect.left) / rect.width));
+      setSelectedValue(side, value)
     }
 
     function handleMouseUp() {
@@ -49,47 +81,67 @@
     document.addEventListener("mouseup", handleMouseUp);
   }
 
-  let possibleWidth = $derived(possibleRange.max - possibleRange.min);
-  let possibleMinPosition = $derived(100 * possibleRange.min);
-  let selectedMinPosition =
-    $derived(possibleMinPosition + (100 * selectedRange.min) / possibleWidth);
-  let selectedMaxPosition =
-    $derived(possibleMinPosition + (100 * selectedRange.max) / possibleWidth);
+  function handleInputKeydown(event: KeyboardEvent) {
+    if (!editingHandle) return;
+    if (event.key === "Enter") {
+      const value = parse(inputString);
+      if (Number.isNaN(value)) {
+        if (slider) {
+          shake = true;
+          setTimeout(() => {shake = false}, 300);
+        }
+      } else {
+        setSelectedValue(editingHandle, value);
+        editingHandle = undefined;
+      }
+    } else if (event.key === "Escape") {
+      editingHandle = undefined;
+    }
+  }
 </script>
 
+{#snippet handle(side: Side)}
+  <div
+    aria-valuemax={possibleRange.max}
+    aria-valuemin={possibleRange.min}
+    aria-valuenow={selectedRange.min}
+    class="handle"
+    class:active={activeHandle === side}
+    onmousedown={() => setActiveHandle(side)}
+    ontouchstart={() => setActiveHandle(side)}
+    role="slider"
+    style:left={`${selectedPosition[side]}%`}
+    tabindex="0"
+  >
+    <input
+      type="text"
+      class:hidden={editingHandle !== side}
+      bind:value={inputString}
+      bind:this={inputElms[side]}
+      onblur={() => editingHandle = undefined}
+      onkeydown={handleInputKeydown}
+      style:width={`${inputString.length}ch`}
+    />
+    <button
+      class:hidden={editingHandle === side}
+      onclick={() => {
+        editingHandle = side;
+        inputString = renderedValues[side];
+        setTimeout(() => inputElms[side]?.focus());
+      }}
+    >{renderedValues[side]}</button>
+  </div>
+{/snippet}
+
 <div id="container">
-  <div bind:this={slider} class="slider">
+  <div bind:this={slider} class="slider" class:shake>
     <div
       class="body"
-      style:left={`${selectedMinPosition}%`}
-      style:right={`${100 - selectedMaxPosition}%`}
+      style:left={`${selectedPosition.min}%`}
+      style:right={`${100 - selectedPosition.max}%`}
     ></div>
-    <div
-      aria-valuemax={possibleRange.max}
-      aria-valuemin={possibleRange.min}
-      aria-valuenow={selectedRange.min}
-      class="handle"
-      class:active={activeHandle === "min"}
-      onmousedown={() => setActiveHandle("min")}
-      ontouchstart={() => setActiveHandle("min")}
-      role="slider"
-      style:--value={`'${render(selectedRange.min)}'`}
-      style:left={`${selectedMinPosition}%`}
-      tabindex="0"
-    ></div>
-    <div
-      aria-valuemax={possibleRange.max}
-      aria-valuemin={possibleRange.min}
-      aria-valuenow={selectedRange.max}
-      class="handle"
-      class:active={activeHandle === "max"}
-      onmousedown={() => setActiveHandle("max")}
-      ontouchstart={() => setActiveHandle("max")}
-      role="slider"
-      style:--value={`'${render(selectedRange.max)}'`}
-      style:left={`${selectedMaxPosition}%`}
-      tabindex="0"
-    ></div>
+    {@render handle("min")}
+    {@render handle("max")}
   </div>
 </div>
 
@@ -133,15 +185,37 @@
       z-index: 9;
     }
 
-    &::after {
-      content: var(--value);
+    & > button, input {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, 50%);
       font-size: 12px;
-      color: #000;
-      white-space: nowrap;
     }
+
+    & > button {
+      white-space: nowrap;
+      background: none;
+      border: none;
+      cursor: text;
+    }
+
+    & > input {
+      font-family: monospace; /* So width can be set in ch units */
+    }
+  }
+
+  .hidden {
+    visibility: hidden;
+  }
+
+  .shake {
+    animation: shake 0.3s;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    12.5%, 62.5% { transform: translateX(-.5em); }
+    37.5%, 87.5% { transform: translateX(.5em); }
   }
 </style>

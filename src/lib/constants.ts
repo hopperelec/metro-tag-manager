@@ -19,6 +19,9 @@ export const HEIGHT_RANGE = { min: 0, max: 4320 };
 export const DURATION_RANGE = { min: 0, max: 7200 };
 export const NUMBER_TRAINS_RANGE = { min: 0, max: 10 };
 
+export const SIZE_REGEX = new RegExp(/^(?<number>\d)+\s*((?<unit>[kmg])?b)?$/i);
+export const DURATION_REGEX = new RegExp(/^(?<hours>\d+):(?<minutes>\d+):(?<seconds>\d+)$/);
+
 export const METRO_STATION_CODES = {
   "APT": "Airport",
   "BDE": "Bede",

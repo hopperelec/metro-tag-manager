@@ -3,7 +3,14 @@
   import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
   import MediaList from "$lib/components/MediaList.svelte";
   import RangeSlider from "$lib/components/RangeSlider.svelte";
-  import { DURATION_RANGE, HEIGHT_RANGE, NUMBER_TRAINS_RANGE, SIZE_RANGE, WIDTH_RANGE } from "$lib/constants";
+  import {
+    DURATION_RANGE,
+    HEIGHT_RANGE,
+    NUMBER_TRAINS_RANGE,
+    SIZE_RANGE,
+    SIZE_REGEX,
+    WIDTH_RANGE
+  } from "$lib/constants";
   import { filterGlobal, type GroupedFilter } from "$lib/filters";
   import type { Range, ClientMedia } from "$lib/types";
   import prettyBytes from "pretty-bytes";
@@ -141,6 +148,32 @@
           media.trainTags.get()
         ))
   ));
+
+  function parseBytes(value: string) {
+    const match = SIZE_REGEX.exec(value);
+    if (!match?.groups) return Number.NaN;
+    const number = +match.groups.number;
+    const unit = match.groups.unit;
+    if (!unit) return number;
+    if (unit === "k") return number * 1000;
+    if (unit === "m") return number * 1000 * 1000;
+    return number * 1000 * 1000 * 1000;
+  }
+
+  function parsePixels(value: string) {
+    if (value.toLowerCase().endsWith("px")) value = value.slice(0, -2);
+    return +value;
+  }
+
+  function parseDuration(value: string) {
+    let parsed = 0;
+    for (const part of value.split(":").reverse()) {
+      const parsedPart = Number.parseInt(part);
+      if (Number.isNaN(parsedPart)) return Number.NaN;
+      parsed = parsed * 60 + parsedPart;
+    }
+    return parsed;
+  }
 </script>
 
 <div id="page-container">
@@ -160,25 +193,44 @@
     </div>
     <div>
       <label for="size">Size</label>
-      <RangeSlider bind:selectedRange={sizeFilter} possibleRange={SIZE_RANGE} render={prettyBytes} />
+      <RangeSlider bind:selectedRange={sizeFilter}
+                   possibleRange={SIZE_RANGE}
+                   render={prettyBytes}
+                   parse={parseBytes}
+      />
     </div>
     <div>
       <label for="width">Width</label>
-      <RangeSlider bind:selectedRange={widthFilter} possibleRange={WIDTH_RANGE} render={px => `${px}px`} />
+      <RangeSlider bind:selectedRange={widthFilter}
+                   possibleRange={WIDTH_RANGE}
+                   render={px => `${px}px`}
+                   parse={parsePixels}
+      />
     </div>
     <div>
       <label for="height">Height</label>
-      <RangeSlider bind:selectedRange={heightFilter} possibleRange={HEIGHT_RANGE} render={px => `${px}px`} />
+      <RangeSlider
+        bind:selectedRange={heightFilter}
+        possibleRange={HEIGHT_RANGE}
+        render={px => `${px}px`}
+        parse={parsePixels}
+      />
     </div>
     <div>
       <label for="duration">Duration</label>
-      <RangeSlider bind:selectedRange={durationFilter} possibleRange={DURATION_RANGE}
+      <RangeSlider bind:selectedRange={durationFilter}
+                   possibleRange={DURATION_RANGE}
                    render={(value) => `${Math.floor(value / 60)}:${(value % 60).toString().padStart(2, "0")}`}
+                   parse={parseDuration}
       />
     </div>
     <div>
       <label for="numberTrains">Number of trains</label>
-      <RangeSlider bind:selectedRange={numberTrainsFilter} possibleRange={NUMBER_TRAINS_RANGE} />
+      <RangeSlider
+        bind:selectedRange={numberTrainsFilter}
+        possibleRange={NUMBER_TRAINS_RANGE}
+        parse={Number.parseInt}
+      />
     </div>
     <div>
       <FormOptionalBoolean bind:value={hasTagsFilter} label="Has tags" />
