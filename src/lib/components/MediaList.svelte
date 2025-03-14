@@ -54,41 +54,48 @@
   }
 </script>
 
+
+{#if false}
 <ul>
   {#each medias as media, index (media.id)}
-    <li>
-      <div
-        class:selected={isSelected(media)}
-        onclick={(event) => handleClick(index, event)}
-        ondblclick={() => handleDoubleClick(media)}
-        onkeydown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            handleClick(index, event);
-          }
-        }}
-        role="button"
-        tabindex="0"
-      >
-        {#if media.duration === 0}
-          <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
-        {:else}
-          <!-- svelte-ignore a11y_media_has_caption -->
-          <video src={`media/${media.path}`} controls preload="none" onmouseenter={loadVideo}></video>
-        {/if}
-        <div id="details">
-          <h4>Path</h4>
-          <span>{media.path}</span>
-          <h4>Size</h4>
-          <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
-          <h4>Context tags</h4>
-          <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
-          <h4>Train tags</h4>
-          <TrainList bind:trains={media.trainTags.get, media.trainTags.set} />
-        </div>
+  <li>
+    <div
+      class:selected={isSelected(media)}
+      onclick={(event) => handleClick(index, event)}
+      ondblclick={() => handleDoubleClick(media)}
+      onkeydown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          handleClick(index, event);
+        }
+      }}
+      role="button"
+      tabindex="0"
+    >
+      {#if media.duration === 0}
+      <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
+      {:else}
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video src={`media/${media.path}`} controls preload="none" onmouseenter={loadVideo}></video>
+      {/if}
+      <div id="details">
+        <h4>Path</h4>
+        <span>{media.path}</span>
+        <h4>Size</h4>
+        <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
+        <h4>Context tags</h4>
+        <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
+        <h4>Train tags</h4>
+        <TrainList bind:trains={media.trainTags.get, media.trainTags.set} />
       </div>
-    </li>
+    </div>
+  </li>
   {/each}
 </ul>
+{:else}
+<p>No media found matching your filters.
+  If you were expecting something something to show up,
+  try refreshing the media database.</p>
+{/if}
 
 <style lang="scss">
   ul {
@@ -97,6 +104,10 @@
     list-style: none;
     padding: 0;
     overflow-y: auto;
+  }
+
+  p {
+    text-align: center;
   }
 
   li > div {
