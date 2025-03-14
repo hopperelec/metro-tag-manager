@@ -55,7 +55,7 @@
 </script>
 
 
-{#if false}
+{#if selectedMedia}
 <ul>
   {#each medias as media, index (media.id)}
   <li>
