@@ -93,15 +93,15 @@ export const METRO_LINES: Record<string, (keyof typeof METRO_STATION_CODES)[]> =
 
 export const CONTEXT_TAGS: AutocompleteTag[] = [
   /* Type tags */
-  { name: "photo/video" },
+  { name: "photo/video", emoji: "📷" },
   { name: "screenshot", emoji: "📱" },
   { name: "pop app screenshot", implies: ["screenshot"] },
   { name: "thumbnail" },
   { name: "video asset" },
 
   /* Focus tags */
-  { name: "train focus" },
-  { name: "station focus" },
+  { name: "train focus", emoji: "🚂" },
+  { name: "station focus", emoji: "🚉" },
   { name: "destination board focus" },
   { name: "advert focus" },
 
@@ -111,15 +111,15 @@ export const CONTEXT_TAGS: AutocompleteTag[] = [
     .map(([code, name]) => ({ name: code, displayName: `${name} metro station`, implies: ["metro station"] })),
 
   /* Time tags */
-  { name: "daytime" },
-  { name: "nighttime" },
+  { name: "daytime", emoji: "🌅" },
+  { name: "nighttime", emoji: "🌙" },
 
   /* Weather tags */
-  { name: "sunny" },
-  { name: "cloudy" },
-  { name: "rain" },
-  { name: "snow" },
-  { name: "fog" },
+  { name: "sunny", emoji: "☀️" },
+  { name: "cloudy", emoji: "☁️" },
+  { name: "rain", emoji: "🌧️" },
+  { name: "snow", emoji: "❄️" },
+  { name: "fog", emoji: "🌫️" },
 
   /* Activity tags */
   { name: "talking", emoji: "🗣️" },

@@ -1,6 +1,7 @@
 <script lang="ts">
   import TagList from "$lib/components/TagList.svelte";
   import { SvelteSet, type SvelteSet as SvelteSetType } from "svelte/reactivity";
+  import { TRAIN_TAGS } from "$lib/constants";
 
   let { trains = $bindable() }: {
     trains: SvelteSetType<string>[];
@@ -18,7 +19,7 @@
           <span>🚂</span>
           <span>❌</span>
         </button>
-        <TagList bind:tags={trains[trainIndex]} />
+        <TagList bind:tags={trains[trainIndex]} autocompleteTags={TRAIN_TAGS} />
       </li>
     {/each}
   </ul>

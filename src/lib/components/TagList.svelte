@@ -1,22 +1,63 @@
 <script lang="ts">
   import type { SvelteSet } from "svelte/reactivity";
+  import { CONTEXT_TAGS } from "$lib/constants";
+  import type { AutocompleteTag } from "$lib/types";
 
-  let { tags = $bindable() }: {
+  let {
+    tags = $bindable(),
+    autocompleteTags = CONTEXT_TAGS
+  }: {
     tags: SvelteSet<string>;
+    autocompleteTags?: AutocompleteTag[];
   } = $props();
+
+  function getEmoji(tag?: AutocompleteTag): string {
+    if (!tag) return "";
+    if (tag.emoji) return tag.emoji;
+    if (tag.implies) {
+      for (const impliedTag of tag.implies) {
+        const impliedEmoji = getEmoji(autocompleteTags.find((t) => t.name === impliedTag));
+        if (impliedEmoji) return impliedEmoji;
+      }
+    }
+    return "";
+  }
+
+  function getColor(tag?: AutocompleteTag): string {
+    if (!tag) return "";
+    if (tag.color) return tag.color;
+    if (tag.implies) {
+      for (const impliedTag of tag.implies) {
+        const impliedColor = getColor(autocompleteTags.find((t) => t.name === impliedTag));
+        if (impliedColor) return impliedColor;
+      }
+    }
+    return "";
+  }
+
+  function getDisplay(tag?: AutocompleteTag) {
+    if (!tag) return {};
+    return {
+      label: getEmoji(tag) + (tag.displayName || tag.name),
+      color: getColor(tag)
+    };
+  }
 
   let newTag = $state("");
 </script>
 
 <ul>
   {#each tags as tag}
+    {@const autocompleteTag = autocompleteTags.find((t) => t.name === tag)}
+    {@const { label, color } = getDisplay(autocompleteTag)}
     <li>
       <button type="button" title="Remove"
               onclick={(event) => {
                 event.stopPropagation();
                 tags.delete(tag);
               }}
-      >{tag}</button>
+              style:--color={color}
+      >{label || tag}</button>
     </li>
   {/each}
   <li>
@@ -56,6 +97,7 @@
     li > button {
         cursor: pointer;
         font-family: monospace; /* to be consistent with input */
+        border: 1px solid var(--color, black);
 
         &:hover {
             text-decoration: line-through;
