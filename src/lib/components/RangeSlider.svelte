@@ -38,7 +38,7 @@
   }
 
   function calculateHandlePosition(side: Side) {
-    return possibleMinPosition + (100 * clamp(selectedRange[side], possibleRange)) / possibleWidth;
+    return possibleMinPosition + (100 * clamp(selectedRange[side])) / possibleWidth;
   }
   
   let possibleWidth = $derived(possibleRange.max - possibleRange.min);
