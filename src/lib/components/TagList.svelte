@@ -1,13 +1,12 @@
 <script lang="ts">
-  import type { SvelteSet } from "svelte/reactivity";
   import { CONTEXT_TAGS } from "$lib/constants";
-  import type { AutocompleteTag } from "$lib/types";
+  import { type AutocompleteTag, TagSet } from "$lib/types";
 
   let {
     tags = $bindable(),
     autocompleteTags = CONTEXT_TAGS
   }: {
-    tags: SvelteSet<string>;
+    tags: TagSet;
     autocompleteTags?: AutocompleteTag[];
   } = $props();
 

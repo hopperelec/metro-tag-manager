@@ -4,19 +4,20 @@
   import MediaList from "$lib/components/MediaList.svelte";
   import RangeSlider from "$lib/components/RangeSlider.svelte";
   import {
+    CONTEXT_TAGS,
     DURATION_RANGE,
     HEIGHT_RANGE,
     NUMBER_TRAINS_RANGE,
     SIZE_RANGE,
     SIZE_REGEX,
+    TRAIN_TAGS,
     WIDTH_RANGE
   } from "$lib/constants";
   import { filterGlobal, type GroupedFilter } from "$lib/filters";
-  import type { Range, ClientMedia } from "$lib/types";
+  import { type ClientMedia, type Range, TagSet } from "$lib/types";
   import prettyBytes from "pretty-bytes";
   import TrainList from "$lib/components/TrainList.svelte";
   import PartialTagList from "$lib/components/PartialTagList.svelte";
-  import { SvelteSet } from "svelte/reactivity";
 
   let { data } = $props();
 
@@ -80,7 +81,7 @@
     }
   }
 
-  let trainsToAdd: SvelteSet<string>[] = $state([]);
+  let trainsToAdd: TagSet[] = $state([]);
 
   async function refresh() {
     if (loadingData) return;
@@ -106,19 +107,19 @@
   let media: ClientMedia[] = $derived(data.media
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
     .map((media) => {
-      let contextTags = $state(new SvelteSet(media.contextTags));
-      let trainTags = $state(media.trainTags.map(v => new SvelteSet(v)));
+      let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
+      let trainTags = $state(media.trainTags.map(v => new TagSet(TRAIN_TAGS, v)));
       return {
         ...media,
         contextTags: {
           get: () => contextTags,
-          set: (tags: SvelteSet<string>) => {
+          set: (tags: TagSet) => {
             contextTags = tags;
           }
         },
         trainTags: {
           get: () => trainTags,
-          set: (tags: SvelteSet<string>[]) => {
+          set: (tags: TagSet[]) => {
             trainTags = tags;
           }
         },
@@ -194,42 +195,42 @@
     <div>
       <label for="size">Size</label>
       <RangeSlider bind:selectedRange={sizeFilter}
+                   parse={parseBytes}
                    possibleRange={SIZE_RANGE}
                    render={prettyBytes}
-                   parse={parseBytes}
       />
     </div>
     <div>
       <label for="width">Width</label>
       <RangeSlider bind:selectedRange={widthFilter}
+                   parse={parsePixels}
                    possibleRange={WIDTH_RANGE}
                    render={px => `${px}px`}
-                   parse={parsePixels}
       />
     </div>
     <div>
       <label for="height">Height</label>
       <RangeSlider
         bind:selectedRange={heightFilter}
+        parse={parsePixels}
         possibleRange={HEIGHT_RANGE}
         render={px => `${px}px`}
-        parse={parsePixels}
       />
     </div>
     <div>
       <label for="duration">Duration</label>
       <RangeSlider bind:selectedRange={durationFilter}
+                   parse={parseDuration}
                    possibleRange={DURATION_RANGE}
                    render={(value) => `${Math.floor(value / 60)}:${(value % 60).toString().padStart(2, "0")}`}
-                   parse={parseDuration}
       />
     </div>
     <div>
       <label for="numberTrains">Number of trains</label>
       <RangeSlider
         bind:selectedRange={numberTrainsFilter}
-        possibleRange={NUMBER_TRAINS_RANGE}
         parse={Number.parseInt}
+        possibleRange={NUMBER_TRAINS_RANGE}
       />
     </div>
     <div>
@@ -262,18 +263,20 @@
         <h4>Trains</h4>
         <TrainList bind:trains={trainsToAdd} />
         <div id="train-buttons">
-          <button id="add-trains-to-selection"
+          <button disabled={trainsToAdd.length === 0}
+                  id="add-trains-to-selection"
                   onclick={() => {
                     for (const media of selectedMedia) {
                       media.trainTags.get().push(...trainsToAdd)
                     }
                   }}
-                  disabled={trainsToAdd.length === 0}
-          >Add to selection</button>
-          <button id="clear-trains"
+          >Add to selection
+          </button>
+          <button disabled={trainsToAdd.length === 0}
+                  id="clear-trains"
                   onclick={() => trainsToAdd = []}
-                  disabled={trainsToAdd.length === 0}
-          >Clear</button>
+          >Clear
+          </button>
         </div>
       </div>
     </div>
