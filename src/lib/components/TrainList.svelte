@@ -1,10 +1,10 @@
 <script lang="ts">
   import TagList from "$lib/components/TagList.svelte";
-  import { SvelteSet, type SvelteSet as SvelteSetType } from "svelte/reactivity";
   import { TRAIN_TAGS } from "$lib/constants";
+  import { TagSet } from "$lib/types";
 
   let { trains = $bindable() }: {
-    trains: SvelteSetType<string>[];
+    trains: TagSet[];
   } = $props();
 </script>
 
@@ -25,7 +25,7 @@
   </ul>
   <button onclick={event => {
     event.stopPropagation();
-    trains.push(new SvelteSet());
+    trains.push(new TagSet(TRAIN_TAGS));
   }}>
     Add train
   </button>
