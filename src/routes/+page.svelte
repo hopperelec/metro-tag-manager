@@ -19,69 +19,10 @@
   import TrainList from "$lib/components/TrainList.svelte";
   import PartialTagList from "$lib/components/PartialTagList.svelte";
 
+  // === Media loading ===
   let { data } = $props();
 
-  let pathFilter = $state("");
-  let pathFilterRegex: RegExp | null = $derived.by(() => {
-    try {
-      return new RegExp(pathFilter);
-    } catch {
-      return null;
-    }
-  });
-
-  let typeFilter = $state("all");
-  let sizeFilter = $state(SIZE_RANGE);
-  let widthFilter = $state(WIDTH_RANGE);
-  let heightFilter = $state(HEIGHT_RANGE);
-  let durationFilter = $state(DURATION_RANGE);
-  let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
-  let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
-  let tagFilter: GroupedFilter = $state({
-    group: true,
-    local: false,
-    or: false,
-    invert: false,
-    filters: []
-  });
-
   let loadingData = $state(false);
-
-  let selectedMedia: ClientMedia[] = $state([]);
-  let selectedContextTags: { tag: string, partial: boolean }[] = $derived.by(() => {
-    if (selectedMedia.length === 0) return [];
-    const [firstMedia, ...restMedia] = selectedMedia;
-    const inAll = new Set(firstMedia.contextTags.get());
-    const inSome = new Set(firstMedia.contextTags.get());
-    for (const media of restMedia) {
-      for (const tag of inAll) {
-        if (!media.contextTags.get().has(tag)) {
-          inAll.delete(tag);
-        }
-      }
-      for (const tag of media.contextTags.get()) {
-        inSome.add(tag);
-      }
-    }
-    return [...inSome].map(tag => ({
-      tag,
-      partial: !inAll.has(tag)
-    }));
-  });
-
-  function addTagToSelectedMedia(tag: string) {
-    for (const media of selectedMedia) {
-      media.contextTags.get().add(tag);
-    }
-  }
-
-  function removeTagFromSelectedMedia(tag: string) {
-    for (const media of selectedMedia) {
-      media.contextTags.get().delete(tag);
-    }
-  }
-
-  let trainsToAdd: TagSet[] = $state([]);
 
   async function refresh() {
     if (loadingData) return;
@@ -91,20 +32,7 @@
     loadingData = false;
   }
 
-  function insideRange(
-    value: bigint | number | undefined,
-    possibleRange: Range,
-    selectedRange: Range
-  ) {
-    if (value === undefined)
-      return (
-        selectedRange.min === possibleRange.min &&
-        selectedRange.max === possibleRange.max
-      );
-    return value >= selectedRange.min && value <= selectedRange.max;
-  }
-
-  let media: ClientMedia[] = $derived(data.media
+  let medias: ClientMedia[] = $derived(data.medias
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
     .map((media) => {
       let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
@@ -131,7 +59,45 @@
     // Sort by path
     .sort((a, b) => a.path.localeCompare(b.path)));
 
-  let filteredMedia = $derived(media.filter(
+  // === Filtering ===
+  let pathFilter = $state("");
+  let pathFilterRegex: RegExp | null = $derived.by(() => {
+    try {
+      return new RegExp(pathFilter);
+    } catch {
+      return null;
+    }
+  });
+
+  let typeFilter = $state("all");
+  let sizeFilter = $state(SIZE_RANGE);
+  let widthFilter = $state(WIDTH_RANGE);
+  let heightFilter = $state(HEIGHT_RANGE);
+  let durationFilter = $state(DURATION_RANGE);
+  let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
+  let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
+  let tagFilter: GroupedFilter = $state({
+    group: true,
+    local: false,
+    or: false,
+    invert: false,
+    filters: []
+  });
+
+  function insideRange(
+    value: bigint | number | undefined,
+    possibleRange: Range,
+    selectedRange: Range
+  ) {
+    if (value === undefined)
+      return (
+        selectedRange.min === possibleRange.min &&
+        selectedRange.max === possibleRange.max
+      );
+    return value >= selectedRange.min && value <= selectedRange.max;
+  }
+
+  let filteredMedias = $derived(medias.filter(
     (media) =>
       (!pathFilterRegex || pathFilterRegex.test(media.path)) &&
       (typeFilter === "all" || media.type === typeFilter) &&
@@ -150,6 +116,51 @@
         ))
   ));
 
+  // === Selection ===
+  let selectedMedias: ClientMedia[] = $state([]);
+  let filteredSelectedMedias = $derived(
+    // Can't directly compare media objects because of Svelte's proxying
+    selectedMedias.filter(
+      (selectedMedia) => filteredMedias.some((filteredMedia) => selectedMedia.id === filteredMedia.id)
+    )
+  );
+
+  let selectedContextTags: { tag: string, partial: boolean }[] = $derived.by(() => {
+    if (filteredSelectedMedias.length === 0) return [];
+    const [firstMedia, ...restMedia] = selectedMedias;
+    const inAll = new Set(firstMedia.contextTags.get());
+    const inSome = new Set(firstMedia.contextTags.get());
+    for (const media of restMedia) {
+      for (const tag of inAll) {
+        if (!media.contextTags.get().has(tag)) {
+          inAll.delete(tag);
+        }
+      }
+      for (const tag of media.contextTags.get()) {
+        inSome.add(tag);
+      }
+    }
+    return [...inSome].map(tag => ({
+      tag,
+      partial: !inAll.has(tag)
+    }));
+  });
+
+  function addTagToSelectedMedia(tag: string) {
+    for (const media of filteredSelectedMedias) {
+      media.contextTags.get().add(tag);
+    }
+  }
+
+  function removeTagFromSelectedMedia(tag: string) {
+    for (const media of filteredSelectedMedias) {
+      media.contextTags.get().delete(tag);
+    }
+  }
+
+  let trainsToAdd: TagSet[] = $state([]);
+
+  // === Range value parsing ===
   function parseBytes(value: string) {
     const match = SIZE_REGEX.exec(value);
     if (!match?.groups) return Number.NaN;
@@ -245,11 +256,11 @@
     <h2>Results</h2>
     <button disabled={loadingData} onclick={refresh}>Refresh</button>
     <h3>Selection</h3>
-    <p>{selectedMedia.length}/{filteredMedia.length} selected</p>
+    <p>{filteredSelectedMedias.length}/{filteredMedias.length} selected</p>
     <div id="tags">
       <div>
         <h4>Context tags</h4>
-        {#if selectedMedia.length === 0}
+        {#if selectedMedias.length === 0}
           <p>Select some media first</p>
         {:else}
           <PartialTagList addTag={addTagToSelectedMedia}
@@ -266,7 +277,7 @@
           <button disabled={trainsToAdd.length === 0}
                   id="add-trains-to-selection"
                   onclick={() => {
-                    for (const media of selectedMedia) {
+                    for (const media of filteredSelectedMedias) {
                       media.trainTags.get().push(...trainsToAdd)
                     }
                   }}
@@ -281,7 +292,7 @@
       </div>
     </div>
     <div id="media-list-container">
-      <MediaList bind:selectedMedia medias={filteredMedia} />
+      <MediaList bind:selectedMedias medias={filteredMedias} />
     </div>
   </div>
 </div>

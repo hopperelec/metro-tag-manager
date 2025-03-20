@@ -6,9 +6,9 @@
 
   let lastSelectedIndex: number | null = null;
 
-  let { medias, selectedMedia = $bindable([]) }: {
+  let { medias, selectedMedias = $bindable([]) }: {
     medias: ClientMedia[];
-    selectedMedia?: ClientMedia[];
+    selectedMedias?: ClientMedia[];
   } = $props();
 
   function loadVideo(event: Event) {
@@ -17,7 +17,7 @@
 
   function isSelected(media: ClientMedia) {
     // Since media is a proxy, we can't use selectedMedia.includes(media)
-    return selectedMedia.some(selected => selected.id === media.id);
+    return selectedMedias.some(selected => selected.id === media.id);
   }
 
   function handleClick(index: number, event: { ctrlKey: boolean, shiftKey: boolean }) {
@@ -26,75 +26,75 @@
 
     if (event.ctrlKey) {
       if (selected) {
-        selectedMedia = selectedMedia.filter(selected => selected.id !== media.id);
+        selectedMedias = selectedMedias.filter(selected => selected.id !== media.id);
         lastSelectedIndex = null;
       } else {
-        selectedMedia.push(media);
+        selectedMedias.push(media);
         lastSelectedIndex = index;
       }
     } else if (event.shiftKey && lastSelectedIndex !== null) {
       const start = Math.min(lastSelectedIndex, index);
       const end = Math.max(lastSelectedIndex, index);
-      selectedMedia = medias.slice(start, end + 1);
+      selectedMedias = medias.slice(start, end + 1);
       lastSelectedIndex = index;
     } else {
-      if (selectedMedia.length === 1 && selected) {
-        selectedMedia = [];
+      if (selectedMedias.length === 1 && selected) {
+        selectedMedias = [];
         lastSelectedIndex = null;
       } else {
-        selectedMedia = [media];
+        selectedMedias = [media];
         lastSelectedIndex = index;
       }
     }
   }
 
   function handleDoubleClick(media: ClientMedia) {
-    selectedMedia = [];
+    selectedMedias = [];
     // TODO: Fullscreen
   }
 </script>
 
 
-{#if selectedMedia}
-<ul>
-  {#each medias as media, index (media.id)}
-  <li>
-    <div
-      class:selected={isSelected(media)}
-      onclick={(event) => handleClick(index, event)}
-      ondblclick={() => handleDoubleClick(media)}
-      onkeydown={(event) => {
+{#if selectedMedias}
+  <ul>
+    {#each medias as media, index (media.id)}
+      <li>
+        <div
+          class:selected={isSelected(media)}
+          onclick={(event) => handleClick(index, event)}
+          ondblclick={() => handleDoubleClick(media)}
+          onkeydown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           handleClick(index, event);
         }
       }}
-      role="button"
-      tabindex="0"
-    >
-      {#if media.duration === 0}
-      <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
-      {:else}
-      <!-- svelte-ignore a11y_media_has_caption -->
-      <video src={`media/${media.path}`} controls preload="none" onmouseenter={loadVideo}></video>
-      {/if}
-      <div id="details">
-        <h4>Path</h4>
-        <span>{media.path}</span>
-        <h4>Size</h4>
-        <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
-        <h4>Context tags</h4>
-        <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
-        <h4>Train tags</h4>
-        <TrainList bind:trains={media.trainTags.get, media.trainTags.set} />
-      </div>
-    </div>
-  </li>
-  {/each}
-</ul>
+          role="button"
+          tabindex="0"
+        >
+          {#if media.duration === 0}
+            <img src={`media/${media.path}`} alt={media.path} loading="lazy" />
+          {:else}
+            <!-- svelte-ignore a11y_media_has_caption -->
+            <video src={`media/${media.path}`} controls preload="none" onmouseenter={loadVideo}></video>
+          {/if}
+          <div id="details">
+            <h4>Path</h4>
+            <span>{media.path}</span>
+            <h4>Size</h4>
+            <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
+            <h4>Context tags</h4>
+            <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
+            <h4>Train tags</h4>
+            <TrainList bind:trains={media.trainTags.get, media.trainTags.set} />
+          </div>
+        </div>
+      </li>
+    {/each}
+  </ul>
 {:else}
-<p>No media found matching your filters.
-  If you were expecting something something to show up,
-  try refreshing the media database.</p>
+  <p>No media found matching your filters.
+    If you were expecting something something to show up,
+    try refreshing the media database.</p>
 {/if}
 
 <style lang="scss">

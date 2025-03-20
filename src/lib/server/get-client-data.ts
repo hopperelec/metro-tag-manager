@@ -1,7 +1,7 @@
 import prisma from "$lib/server/prisma";
 import type { ServerMedia } from "$lib/types";
 
-export default async function getClientData(): Promise<{ media: ServerMedia[] }> {
+export default async function getClientData(): Promise<{ medias: ServerMedia[] }> {
   const medias = await prisma.media.findMany({
     include: {
       contextTags: { select: { tag: true } },
@@ -9,7 +9,7 @@ export default async function getClientData(): Promise<{ media: ServerMedia[] }>
     }
   });
   return {
-    media: medias.map((media) => {
+    medias: medias.map((media) => {
       const trainTagsMap = new Map<number, Set<string>>();
       for (const { trainId, tag } of media.trainTags) {
         const currentTags = trainTagsMap.get(trainId);
@@ -28,7 +28,7 @@ export default async function getClientData(): Promise<{ media: ServerMedia[] }>
         height: media.height ?? undefined,
         contextTags: new Set(media.contextTags.map((tag) => tag.tag)),
         trainTags: [...trainTagsMap.values()]
-      }
+      };
     })
   };
 }
