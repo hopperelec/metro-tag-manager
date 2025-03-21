@@ -16,7 +16,7 @@ export default async function getClientData(): Promise<{ medias: ServerMedia[] }
         if (currentTags) {
           currentTags.add(tag);
         } else {
-          trainTagsMap.set(trainId, new Set(tag));
+          trainTagsMap.set(trainId, new Set([tag]));
         }
       }
       return {

@@ -32,7 +32,7 @@
     loadingData = false;
   }
 
-  let medias: ClientMedia[] = $derived(data.medias
+  let medias: ClientMedia[] = $state(data.medias
     // Pre-process some values, so they don't need to be re-calculated whenever the filters change
     .map((media) => {
       let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
@@ -57,7 +57,78 @@
       };
     })
     // Sort by path
-    .sort((a, b) => a.path.localeCompare(b.path)));
+    .sort((a, b) => a.path.localeCompare(b.path))
+  );
+
+  // === Saving ===
+  let serverMedias = $state.raw(
+    data.medias.map(media => ({
+      // Constrain properties to just those used for saving to reduce memory usage
+      id: media.id,
+      contextTags: media.contextTags,
+      trainTags: media.trainTags
+    }))
+  );
+
+  function sortTrainTags(trainTags: Set<string>[]) {
+    return trainTags
+      .map(train => [...train].sort())
+      .toSorted((a, b) => {
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] < b[i]) return -1;
+          if (a[i] > b[i]) return 1;
+        }
+        return 0;
+      });
+  }
+
+  let modifiedMedias = $derived(medias.filter(currentMedia => {
+    const serverMedia = serverMedias.find(media => media.id === currentMedia.id);
+    if (!serverMedia) throw new Error(`Media with ID ${currentMedia.id} not found`);
+    if (currentMedia.contextTags.get().size !== serverMedia.contextTags.size) return true;
+    for (const tag of currentMedia.contextTags.get()) {
+      if (!serverMedia.contextTags.has(tag)) return true;
+    }
+    if (currentMedia.trainTags.get().length !== serverMedia.trainTags.length) return true;
+    const sortedCurrentTrainTags = sortTrainTags(currentMedia.trainTags.get());
+    const sortedOriginalTrainTags = sortTrainTags(serverMedia.trainTags);
+    for (let i = 0; i < sortedCurrentTrainTags.length; i++) {
+      if (sortedCurrentTrainTags[i].length !== sortedOriginalTrainTags[i].length) return true;
+      for (let j = 0; j < sortedCurrentTrainTags[i].length; j++) {
+        if (sortedCurrentTrainTags[i][j] !== sortedOriginalTrainTags[i][j]) return true;
+      }
+    }
+    return false;
+  }));
+
+  async function save() {
+    const response = await fetch("/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(
+        modifiedMedias.map(media => ({
+          id: media.id,
+          contextTags: [...media.contextTags.get()],
+          trainTags: media.trainTags.get().map(train => [...train])
+        }))
+      )
+    });
+    if (response.ok) {
+      // Assignment to trigger reactivity
+      serverMedias = serverMedias.map(serverMedia => {
+        const clientMedia = modifiedMedias.find(media => media.id === serverMedia.id);
+        if (clientMedia) {
+          serverMedia.contextTags = new Set(clientMedia.contextTags.get());
+          serverMedia.trainTags = clientMedia.trainTags.get().map(train => new Set(train));
+        }
+        return serverMedia;
+      })
+    } else {
+      alert(`Failed to save: ${response.status} ${response.statusText}, ${await response.text()}`);
+    }
+  }
 
   // === Filtering ===
   let pathFilter = $state("");
@@ -160,6 +231,12 @@
 
   let trainsToAdd: TagSet[] = $state([]);
 
+  function addTrainsToSelection() {
+    for (const media of filteredSelectedMedias) {
+      media.trainTags.get().push(...trainsToAdd);
+    }
+  }
+
   // === Range value parsing ===
   function parseBytes(value: string) {
     const match = SIZE_REGEX.exec(value);
@@ -254,7 +331,10 @@
   </div>
   <div class:loading={loadingData} id="results">
     <h2>Results</h2>
-    <button disabled={loadingData} onclick={refresh}>Refresh</button>
+    <div id="sync-buttons">
+      <button disabled={loadingData} onclick={refresh}>Refresh</button>
+      <button disabled={loadingData || modifiedMedias.length === 0} onclick={save}>Save</button>
+    </div>
     <h3>Selection</h3>
     <p>{filteredSelectedMedias.length}/{filteredMedias.length} selected</p>
     <div id="tags">
@@ -276,11 +356,7 @@
         <div id="train-buttons">
           <button disabled={trainsToAdd.length === 0}
                   id="add-trains-to-selection"
-                  onclick={() => {
-                    for (const media of filteredSelectedMedias) {
-                      media.trainTags.get().push(...trainsToAdd)
-                    }
-                  }}
+                  onclick={addTrainsToSelection}
           >Add to selection
           </button>
           <button disabled={trainsToAdd.length === 0}
@@ -330,9 +406,14 @@
     flex-grow: 1;
     flex-direction: column;
     align-items: center;
+  }
 
-    & > button {
-      margin-bottom: .5em;
+  #sync-buttons {
+    display: flex;
+    margin-bottom: .5em;
+
+    & > * {
+      margin: 0 .25em;
     }
   }
 

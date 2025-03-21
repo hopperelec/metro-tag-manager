@@ -66,7 +66,9 @@ export class TagSet extends SvelteSet<string> {
   }
 
   private getAutocompleteTag(tag: string) {
-    return this.autocomplete.find(autocompleteTag => autocompleteTag.name === tag);
+    // For some reason, this.autocomplete is undefined server-side.
+    // This is a temporary workaround until I figure out why.
+    return this.autocomplete?.find(autocompleteTag => autocompleteTag.name === tag);
   }
 
   private removeImplied(tag: string) {
