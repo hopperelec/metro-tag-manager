@@ -1,13 +1,17 @@
 <!-- This is mostly the same as TagList, but I couldn't figure out a good way to make it generic. -->
 
 <script lang="ts">
-  let { tags = $bindable(), addTag, removeTag }: {
-    tags: { tag: string, partial: boolean }[];
-    addTag: (tag: string) => void;
-    removeTag: (tag: string) => void;
-  } = $props();
+let {
+	tags = $bindable(),
+	addTag,
+	removeTag,
+}: {
+	tags: { tag: string; partial: boolean }[];
+	addTag: (tag: string) => void;
+	removeTag: (tag: string) => void;
+} = $props();
 
-  let newTag = $state("");
+let newTag = $state("");
 </script>
 
 <ul>
@@ -52,41 +56,41 @@
 </ul>
 
 <style>
-    ul {
-        list-style: none;
-        padding: 0;
-        display: flex;
-        flex-wrap: wrap;
+ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+li {
+  padding: .2em;
+
+  & > button {
+    cursor: pointer;
+    font-family: monospace; /* to be consistent with input */
+
+    &:not(.partial) {
+      border: 1px solid black;
+
+      &:hover {
+        text-decoration: line-through;
+      }
     }
 
-    li {
-        padding: .2em;
+    &.partial {
+      border: 1px dashed black;
+
+      &:hover {
+        border: 2px solid black;
+      }
     }
+  }
+}
 
-    li > button {
-        cursor: pointer;
-        font-family: monospace; /* to be consistent with input */
-
-        &:not(.partial) {
-            border: 1px solid black;
-
-            &:hover {
-                text-decoration: line-through;
-            }
-        }
-
-        &.partial {
-            border: 1px dashed black;
-
-            &:hover {
-                border: 2px solid black;
-            }
-        }
-    }
-
-    input {
-        font-family: monospace; /* so that width can be set using ch */
-        height: 1em;
-        font-size: 1em;
-    }
+input {
+  font-family: monospace; /* so that width can be set using ch */
+  height: 1em;
+  font-size: 1em;
+}
 </style>

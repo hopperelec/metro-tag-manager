@@ -1,268 +1,292 @@
 <script lang="ts">
-  import FilterComponent from "$lib/components/Filter.svelte";
-  import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
-  import MediaList from "$lib/components/MediaList.svelte";
-  import RangeSlider from "$lib/components/RangeSlider.svelte";
-  import {
-    CONTEXT_TAGS,
-    DURATION_RANGE,
-    HEIGHT_RANGE,
-    NUMBER_TRAINS_RANGE,
-    SIZE_RANGE,
-    SIZE_REGEX,
-    TRAIN_TAGS,
-    WIDTH_RANGE
-  } from "$lib/constants";
-  import { filterGlobal, type GroupedFilter } from "$lib/filters";
-  import { type ClientMedia, type Range, TagSet } from "$lib/types";
-  import prettyBytes from "pretty-bytes";
-  import TrainList from "$lib/components/TrainList.svelte";
-  import PartialTagList from "$lib/components/PartialTagList.svelte";
+import FilterComponent from "$lib/components/Filter.svelte";
+import FormOptionalBoolean from "$lib/components/FormOptionalBoolean.svelte";
+import MediaList from "$lib/components/MediaList.svelte";
+import PartialTagList from "$lib/components/PartialTagList.svelte";
+import RangeSlider from "$lib/components/RangeSlider.svelte";
+import TrainList from "$lib/components/TrainList.svelte";
+import {
+	CONTEXT_TAGS,
+	DURATION_RANGE,
+	HEIGHT_RANGE,
+	NUMBER_TRAINS_RANGE,
+	SIZE_RANGE,
+	SIZE_REGEX,
+	TRAIN_TAGS,
+	WIDTH_RANGE,
+} from "$lib/constants";
+import { type GroupedFilter, filterGlobal } from "$lib/filters";
+import { type ClientMedia, type Range, TagSet } from "$lib/types";
+import prettyBytes from "pretty-bytes";
 
-  // === Media loading ===
-  let { data } = $props();
+// === Media loading ===
+let { data } = $props();
 
-  let loadingData = $state(false);
+let loadingData = $state(false);
 
-  async function refresh() {
-    if (loadingData) return;
-    loadingData = true;
-    const response = await fetch("refresh");
-    data = await response.json();
-    loadingData = false;
-  }
+async function refresh() {
+	if (loadingData) return;
+	loadingData = true;
+	const response = await fetch("refresh");
+	data = await response.json();
+	loadingData = false;
+}
 
-  let medias: ClientMedia[] = $state(data.medias
-    // Pre-process some values, so they don't need to be re-calculated whenever the filters change
-    .map((media) => {
-      let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
-      let trainTags = $state(media.trainTags.map(v => new TagSet(TRAIN_TAGS, v)));
-      return {
-        ...media,
-        contextTags: {
-          get: () => contextTags,
-          set: (tags: TagSet) => {
-            contextTags = tags;
-          }
-        },
-        trainTags: {
-          get: () => trainTags,
-          set: (tags: TagSet[]) => {
-            trainTags = tags;
-          }
-        },
-        type: (media.duration === 0 ? "image" : "video") as "image" | "video",
-        numTrains: media.trainTags.length,
-        hasTags: media.trainTags.some(train => train.size !== 0)
-      };
-    })
-    // Sort by path
-    .sort((a, b) => a.path.localeCompare(b.path))
-  );
+let medias: ClientMedia[] = $state(
+	data.medias
+		// Pre-process some values, so they don't need to be re-calculated whenever the filters change
+		.map((media) => {
+			let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
+			let trainTags = $state(
+				media.trainTags.map((v) => new TagSet(TRAIN_TAGS, v)),
+			);
+			return {
+				...media,
+				contextTags: {
+					get: () => contextTags,
+					set: (tags: TagSet) => {
+						contextTags = tags;
+					},
+				},
+				trainTags: {
+					get: () => trainTags,
+					set: (tags: TagSet[]) => {
+						trainTags = tags;
+					},
+				},
+				type: (media.duration === 0 ? "image" : "video") as "image" | "video",
+				numTrains: media.trainTags.length,
+				hasTags: media.trainTags.some((train) => train.size !== 0),
+			};
+		})
+		// Sort by path
+		.sort((a, b) => a.path.localeCompare(b.path)),
+);
 
-  // === Saving ===
-  let serverMedias = $state.raw(
-    data.medias.map(media => ({
-      // Constrain properties to just those used for saving to reduce memory usage
-      id: media.id,
-      contextTags: media.contextTags,
-      trainTags: media.trainTags
-    }))
-  );
+// === Saving ===
+let serverMedias = $state.raw(
+	data.medias.map((media) => ({
+		// Constrain properties to just those used for saving to reduce memory usage
+		id: media.id,
+		contextTags: media.contextTags,
+		trainTags: media.trainTags,
+	})),
+);
 
-  function sortTrainTags(trainTags: Set<string>[]) {
-    return trainTags
-      .map(train => [...train].sort())
-      .toSorted((a, b) => {
-        for (let i = 0; i < a.length; i++) {
-          if (a[i] < b[i]) return -1;
-          if (a[i] > b[i]) return 1;
-        }
-        return 0;
-      });
-  }
+function sortTrainTags(trainTags: Set<string>[]) {
+	return trainTags
+		.map((train) => [...train].sort())
+		.toSorted((a, b) => {
+			for (let i = 0; i < a.length; i++) {
+				if (a[i] < b[i]) return -1;
+				if (a[i] > b[i]) return 1;
+			}
+			return 0;
+		});
+}
 
-  let modifiedMedias = $derived(medias.filter(currentMedia => {
-    const serverMedia = serverMedias.find(media => media.id === currentMedia.id);
-    if (!serverMedia) throw new Error(`Media with ID ${currentMedia.id} not found`);
-    if (currentMedia.contextTags.get().size !== serverMedia.contextTags.size) return true;
-    for (const tag of currentMedia.contextTags.get()) {
-      if (!serverMedia.contextTags.has(tag)) return true;
-    }
-    if (currentMedia.trainTags.get().length !== serverMedia.trainTags.length) return true;
-    const sortedCurrentTrainTags = sortTrainTags(currentMedia.trainTags.get());
-    const sortedOriginalTrainTags = sortTrainTags(serverMedia.trainTags);
-    for (let i = 0; i < sortedCurrentTrainTags.length; i++) {
-      if (sortedCurrentTrainTags[i].length !== sortedOriginalTrainTags[i].length) return true;
-      for (let j = 0; j < sortedCurrentTrainTags[i].length; j++) {
-        if (sortedCurrentTrainTags[i][j] !== sortedOriginalTrainTags[i][j]) return true;
-      }
-    }
-    return false;
-  }));
+let modifiedMedias = $derived(
+	medias.filter((currentMedia) => {
+		const serverMedia = serverMedias.find(
+			(media) => media.id === currentMedia.id,
+		);
+		if (!serverMedia)
+			throw new Error(`Media with ID ${currentMedia.id} not found`);
+		if (currentMedia.contextTags.get().size !== serverMedia.contextTags.size)
+			return true;
+		for (const tag of currentMedia.contextTags.get()) {
+			if (!serverMedia.contextTags.has(tag)) return true;
+		}
+		if (currentMedia.trainTags.get().length !== serverMedia.trainTags.length)
+			return true;
+		const sortedCurrentTrainTags = sortTrainTags(currentMedia.trainTags.get());
+		const sortedOriginalTrainTags = sortTrainTags(serverMedia.trainTags);
+		for (let i = 0; i < sortedCurrentTrainTags.length; i++) {
+			if (
+				sortedCurrentTrainTags[i].length !== sortedOriginalTrainTags[i].length
+			)
+				return true;
+			for (let j = 0; j < sortedCurrentTrainTags[i].length; j++) {
+				if (sortedCurrentTrainTags[i][j] !== sortedOriginalTrainTags[i][j])
+					return true;
+			}
+		}
+		return false;
+	}),
+);
 
-  async function save() {
-    const response = await fetch("/update", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(
-        modifiedMedias.map(media => ({
-          id: media.id,
-          contextTags: [...media.contextTags.get()],
-          trainTags: media.trainTags.get().map(train => [...train])
-        }))
-      )
-    });
-    if (response.ok) {
-      // Assignment to trigger reactivity
-      serverMedias = serverMedias.map(serverMedia => {
-        const clientMedia = modifiedMedias.find(media => media.id === serverMedia.id);
-        if (clientMedia) {
-          serverMedia.contextTags = new Set(clientMedia.contextTags.get());
-          serverMedia.trainTags = clientMedia.trainTags.get().map(train => new Set(train));
-        }
-        return serverMedia;
-      })
-    } else {
-      alert(`Failed to save: ${response.status} ${response.statusText}, ${await response.text()}`);
-    }
-  }
+async function save() {
+	const response = await fetch("/update", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(
+			modifiedMedias.map((media) => ({
+				id: media.id,
+				contextTags: [...media.contextTags.get()],
+				trainTags: media.trainTags.get().map((train) => [...train]),
+			})),
+		),
+	});
+	if (response.ok) {
+		// Assignment to trigger reactivity
+		serverMedias = serverMedias.map((serverMedia) => {
+			const clientMedia = modifiedMedias.find(
+				(media) => media.id === serverMedia.id,
+			);
+			if (clientMedia) {
+				serverMedia.contextTags = new Set(clientMedia.contextTags.get());
+				serverMedia.trainTags = clientMedia.trainTags
+					.get()
+					.map((train) => new Set(train));
+			}
+			return serverMedia;
+		});
+	} else {
+		alert(`Failed to save (${response.status}): ${await response.text()}`);
+	}
+}
 
-  // === Filtering ===
-  let pathFilter = $state("");
-  let pathFilterRegex: RegExp | null = $derived.by(() => {
-    try {
-      return new RegExp(pathFilter);
-    } catch {
-      return null;
-    }
-  });
+// === Filtering ===
+let pathFilter = $state("");
+let pathFilterRegex: RegExp | null = $derived.by(() => {
+	try {
+		return new RegExp(pathFilter);
+	} catch {
+		return null;
+	}
+});
 
-  let typeFilter = $state("all");
-  let sizeFilter = $state(SIZE_RANGE);
-  let widthFilter = $state(WIDTH_RANGE);
-  let heightFilter = $state(HEIGHT_RANGE);
-  let durationFilter = $state(DURATION_RANGE);
-  let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
-  let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
-  let tagFilter: GroupedFilter = $state({
-    group: true,
-    local: false,
-    or: false,
-    invert: false,
-    filters: []
-  });
+let typeFilter = $state("all");
+let sizeFilter = $state(SIZE_RANGE);
+let widthFilter = $state(WIDTH_RANGE);
+let heightFilter = $state(HEIGHT_RANGE);
+let durationFilter = $state(DURATION_RANGE);
+let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
+let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
+let tagFilter: GroupedFilter = $state({
+	group: true,
+	local: false,
+	or: false,
+	invert: false,
+	filters: [],
+});
 
-  function insideRange(
-    value: bigint | number | undefined,
-    possibleRange: Range,
-    selectedRange: Range
-  ) {
-    if (value === undefined)
-      return (
-        selectedRange.min === possibleRange.min &&
-        selectedRange.max === possibleRange.max
-      );
-    return value >= selectedRange.min && value <= selectedRange.max;
-  }
+function insideRange(
+	value: bigint | number | undefined,
+	possibleRange: Range,
+	selectedRange: Range,
+) {
+	if (value === undefined)
+		return (
+			selectedRange.min === possibleRange.min &&
+			selectedRange.max === possibleRange.max
+		);
+	return value >= selectedRange.min && value <= selectedRange.max;
+}
 
-  let filteredMedias = $derived(medias.filter(
-    (media) =>
-      (!pathFilterRegex || pathFilterRegex.test(media.path)) &&
-      (typeFilter === "all" || media.type === typeFilter) &&
-      insideRange(media.size, SIZE_RANGE, sizeFilter) &&
-      insideRange(media.width, WIDTH_RANGE, widthFilter) &&
-      insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
-      insideRange(media.duration, DURATION_RANGE, durationFilter) &&
-      insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
-      (hasTagsFilter !== "on" || media.hasTags) &&
-      (hasTagsFilter !== "off" || !media.hasTags) &&
-      (!tagFilter ||
-        filterGlobal(
-          tagFilter,
-          media.contextTags.get(),
-          media.trainTags.get()
-        ))
-  ));
+let filteredMedias = $derived(
+	medias.filter(
+		(media) =>
+			(!pathFilterRegex || pathFilterRegex.test(media.path)) &&
+			(typeFilter === "all" || media.type === typeFilter) &&
+			insideRange(media.size, SIZE_RANGE, sizeFilter) &&
+			insideRange(media.width, WIDTH_RANGE, widthFilter) &&
+			insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
+			insideRange(media.duration, DURATION_RANGE, durationFilter) &&
+			insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
+			(hasTagsFilter !== "on" || media.hasTags) &&
+			(hasTagsFilter !== "off" || !media.hasTags) &&
+			(!tagFilter ||
+				filterGlobal(
+					tagFilter,
+					media.contextTags.get(),
+					media.trainTags.get(),
+				)),
+	),
+);
 
-  // === Selection ===
-  let selectedMedias: ClientMedia[] = $state([]);
-  let filteredSelectedMedias = $derived(
-    // Can't directly compare media objects because of Svelte's proxying
-    selectedMedias.filter(
-      (selectedMedia) => filteredMedias.some((filteredMedia) => selectedMedia.id === filteredMedia.id)
-    )
-  );
+// === Selection ===
+let selectedMedias: ClientMedia[] = $state([]);
+let filteredSelectedMedias = $derived(
+	// Can't directly compare media objects because of Svelte's proxying
+	selectedMedias.filter((selectedMedia) =>
+		filteredMedias.some(
+			(filteredMedia) => selectedMedia.id === filteredMedia.id,
+		),
+	),
+);
 
-  let selectedContextTags: { tag: string, partial: boolean }[] = $derived.by(() => {
-    if (filteredSelectedMedias.length === 0) return [];
-    const [firstMedia, ...restMedia] = selectedMedias;
-    const inAll = new Set(firstMedia.contextTags.get());
-    const inSome = new Set(firstMedia.contextTags.get());
-    for (const media of restMedia) {
-      for (const tag of inAll) {
-        if (!media.contextTags.get().has(tag)) {
-          inAll.delete(tag);
-        }
-      }
-      for (const tag of media.contextTags.get()) {
-        inSome.add(tag);
-      }
-    }
-    return [...inSome].map(tag => ({
-      tag,
-      partial: !inAll.has(tag)
-    }));
-  });
+let selectedContextTags: { tag: string; partial: boolean }[] = $derived.by(
+	() => {
+		if (filteredSelectedMedias.length === 0) return [];
+		const [firstMedia, ...restMedia] = selectedMedias;
+		const inAll = new Set(firstMedia.contextTags.get());
+		const inSome = new Set(firstMedia.contextTags.get());
+		for (const media of restMedia) {
+			for (const tag of inAll) {
+				if (!media.contextTags.get().has(tag)) {
+					inAll.delete(tag);
+				}
+			}
+			for (const tag of media.contextTags.get()) {
+				inSome.add(tag);
+			}
+		}
+		return [...inSome].map((tag) => ({
+			tag,
+			partial: !inAll.has(tag),
+		}));
+	},
+);
 
-  function addTagToSelectedMedia(tag: string) {
-    for (const media of filteredSelectedMedias) {
-      media.contextTags.get().add(tag);
-    }
-  }
+function addTagToSelectedMedia(tag: string) {
+	for (const media of filteredSelectedMedias) {
+		media.contextTags.get().add(tag);
+	}
+}
 
-  function removeTagFromSelectedMedia(tag: string) {
-    for (const media of filteredSelectedMedias) {
-      media.contextTags.get().delete(tag);
-    }
-  }
+function removeTagFromSelectedMedia(tag: string) {
+	for (const media of filteredSelectedMedias) {
+		media.contextTags.get().delete(tag);
+	}
+}
 
-  let trainsToAdd: TagSet[] = $state([]);
+let trainsToAdd: TagSet[] = $state([]);
 
-  function addTrainsToSelection() {
-    for (const media of filteredSelectedMedias) {
-      media.trainTags.get().push(...trainsToAdd);
-    }
-  }
+function addTrainsToSelection() {
+	for (const media of filteredSelectedMedias) {
+		media.trainTags.get().push(...trainsToAdd);
+	}
+}
 
-  // === Range value parsing ===
-  function parseBytes(value: string) {
-    const match = SIZE_REGEX.exec(value);
-    if (!match?.groups) return Number.NaN;
-    const number = +match.groups.number;
-    const unit = match.groups.unit;
-    if (!unit) return number;
-    if (unit === "k") return number * 1000;
-    if (unit === "m") return number * 1000 * 1000;
-    return number * 1000 * 1000 * 1000;
-  }
+// === Range value parsing ===
+function parseBytes(value: string) {
+	const match = SIZE_REGEX.exec(value);
+	if (!match?.groups) return Number.NaN;
+	const number = +match.groups.number;
+	const unit = match.groups.unit;
+	if (!unit) return number;
+	if (unit === "k") return number * 1000;
+	if (unit === "m") return number * 1000 * 1000;
+	return number * 1000 * 1000 * 1000;
+}
 
-  function parsePixels(value: string) {
-    if (value.toLowerCase().endsWith("px")) value = value.slice(0, -2);
-    return +value;
-  }
+function parsePixels(value: string) {
+	if (value.toLowerCase().endsWith("px")) value = value.slice(0, -2);
+	return +value;
+}
 
-  function parseDuration(value: string) {
-    let parsed = 0;
-    for (const part of value.split(":").reverse()) {
-      const parsedPart = Number.parseInt(part);
-      if (Number.isNaN(parsedPart)) return Number.NaN;
-      parsed = parsed * 60 + parsedPart;
-    }
-    return parsed;
-  }
+function parseDuration(value: string) {
+	let parsed = 0;
+	for (const part of value.split(":").reverse()) {
+		const parsedPart = Number.parseInt(part);
+		if (Number.isNaN(parsedPart)) return Number.NaN;
+		parsed = parsed * 60 + parsedPart;
+	}
+	return parsed;
+}
 </script>
 
 <div id="page-container">
@@ -373,89 +397,88 @@
   </div>
 </div>
 
-<style lang="scss">
-  #page-container {
-    display: flex;
-    height: 100%;
-  }
+<style>
+#page-container {
+  display: flex;
+  height: 100%;
+}
 
-  #filters {
-    flex: 0 0 20em;
-    padding: 1em 3ch;
-    overflow-y: auto;
-    overflow-x: hidden;
+#filters {
+  flex: 0 0 20em;
+  padding: 1em 3ch;
+  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+
+  & > div {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-
-    & > div {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 1em;
-    }
+    align-items: center;
+    margin-bottom: 1em;
   }
+}
 
-  .invalid {
-    color: red;
+.invalid {
+  color: red;
+}
+
+#results {
+  display: flex;
+  flex-grow: 1;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading {
+  cursor: wait;
+
+  & > * {
+    pointer-events: none;
   }
+}
 
-  #results {
+#sync-buttons {
+  display: flex;
+  margin-bottom: .5em;
+
+  & > * {
+    margin: 0 .25em;
+  }
+}
+
+#train-buttons {
+  display: flex;
+  margin: .5em;
+}
+
+#add-trains-to-selection {
+  background-color: #9f9;
+  margin-right: .25em;
+}
+
+#clear-trains {
+  background-color: #f99;
+  margin-left: .25em;
+}
+
+#tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: stretch;
+  width: 100%;
+
+  & > div {
+    flex: 1;
     display: flex;
-    flex-grow: 1;
     flex-direction: column;
     align-items: center;
   }
+}
 
-  #sync-buttons {
-    display: flex;
-    margin-bottom: .5em;
-
-    & > * {
-      margin: 0 .25em;
-    }
-  }
-
-  .loading {
-    cursor: wait;
-
-    & > * {
-      pointer-events: none;
-    }
-  }
-
-  #train-buttons {
-    display: flex;
-    margin: .5em;
-  }
-
-  #add-trains-to-selection {
-    background-color: #9f9;
-    margin-right: .25em;
-  }
-
-  #clear-trains {
-    background-color: #f99;
-    margin-left: .25em;
-  }
-
-  #tags {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: stretch;
-    width: 100%;
-
-    & > div {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-  }
-
-  #media-list-container {
-    margin-top: 1em;
-    width: 100%;
-  }
+#media-list-container {
+  margin-top: 1em;
+  width: 100%;
+}
 </style>

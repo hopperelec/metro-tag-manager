@@ -1,29 +1,30 @@
 <script lang="ts">
-  import FilterComponent from "./Filter.svelte";
-  import type { Filter, GroupedFilter } from "$lib/filters";
+import type { Filter, GroupedFilter } from "$lib/filters";
+import FilterComponent from "./Filter.svelte";
 
-  let {
-    filter = $bindable({
-      group: true,
-      local: false,
-      or: false,
-      invert: false,
-      filters: []
-    }), odd = false
-  }: {
-    filter?: GroupedFilter;
-    odd?: boolean;
-  } = $props();
+let {
+	filter = $bindable({
+		group: true,
+		local: false,
+		or: false,
+		invert: false,
+		filters: [],
+	}),
+	odd = false,
+}: {
+	filter?: GroupedFilter;
+	odd?: boolean;
+} = $props();
 
-  function addFilter(newFilter: Filter) {
-    // Assignment for reactivity
-    filter.filters = [...filter.filters, newFilter];
-  }
+function addFilter(newFilter: Filter) {
+	// Assignment for reactivity
+	filter.filters = [...filter.filters, newFilter];
+}
 
-  function removeFilter(index: number) {
-    // Assignment for reactivity
-    filter.filters = filter.filters.filter((_, i) => i !== index);
-  }
+function removeFilter(index: number) {
+	// Assignment for reactivity
+	filter.filters = filter.filters.filter((_, i) => i !== index);
+}
 </script>
 
 <div class:odd id="outer-filter">
@@ -68,56 +69,56 @@
   </div>
 </div>
 
-<style lang="scss">
-  #outer-filter {
-    border: 1px solid #000;
-    width: fit-content;
-    padding: .5em;
-    background: #fff;
+<style>
+#outer-filter {
+  border: 1px solid #000;
+  width: fit-content;
+  padding: .5em;
+  background: #fff;
 
-    &.odd {
-      background: #eee;
-    }
+  &.odd {
+    background: #eee;
   }
+}
 
-  p {
-    font-style: italic;
-  }
+p {
+  font-style: italic;
+}
 
-  ul {
-    list-style-type: none;
-    padding: 0;
-  }
+ul {
+  list-style-type: none;
+  padding: 0;
+}
 
-  li, p {
-    padding-bottom: .5em;
-  }
+li, p {
+  padding-bottom: .5em;
+}
 
-  #outer-filter, ul, li {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+#outer-filter, ul, li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-  .inner-filter {
-    display: flex;
-  }
+.inner-filter {
+  display: flex;
+}
 
-  button {
-    cursor: pointer;
-  }
+button {
+  cursor: pointer;
 
-  #add-buttons > button {
+  #add-buttons > & {
     background: #5f5;
     border: 1px solid #050;
   }
+}
 
-  .remove-button {
-    background: #f55;
-    border: 1px solid #500;
-    height: 2em;
-    width: 2em;
-    border-radius: 0 25% 25% 0;
-    border-left: none;
-  }
+.remove-button {
+  background: #f55;
+  border: 1px solid #500;
+  height: 2em;
+  width: 2em;
+  border-radius: 0 25% 25% 0;
+  border-left: none;
+}
 </style>

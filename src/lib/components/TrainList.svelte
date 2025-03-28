@@ -1,8 +1,8 @@
 <script lang="ts">
+import { browser } from "$app/environment";
 import TagList from "$lib/components/TagList.svelte";
 import { TRAIN_TAGS } from "$lib/constants";
 import { TagSet } from "$lib/types";
-import { browser } from "$app/environment";
 
 let {
 	trains = $bindable(),
@@ -40,44 +40,44 @@ function addTrain() {
   </button>
 </div>
 
-<style lang="scss">
-  #container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+<style>
+#container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-  ul {
-    list-style: none;
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  align-items: center;
+
+  & > button {
+    cursor: pointer;
+    height: 1.5em;
+    width: 1.5em;
+    font-size: 1em;
+    background: none;
+    border: none;
     padding: 0;
-  }
 
-  li {
-    display: flex;
-    align-items: center;
+    & :last-child {
+      display: none;
+    }
 
-    & > button {
-      cursor: pointer;
-      height: 1.5em;
-      width: 1.5em;
-      font-size: 1em;
-      background: none;
-      border: none;
-      padding: 0;
-
-      & :last-child {
+    &:hover {
+      & :first-child {
         display: none;
       }
 
-      &:hover {
-        & :first-child {
-          display: none;
-        }
-
-        & :last-child {
-          display: block;
-        }
+      & :last-child {
+        display: block;
       }
     }
   }
+}
 </style>

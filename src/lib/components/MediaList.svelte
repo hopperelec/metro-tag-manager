@@ -1,57 +1,65 @@
 <script lang="ts">
-  import type { ClientMedia } from "$lib/types";
-  import prettyBytes from "pretty-bytes";
-  import TagList from "$lib/components/TagList.svelte";
-  import TrainList from "$lib/components/TrainList.svelte";
+import TagList from "$lib/components/TagList.svelte";
+import TrainList from "$lib/components/TrainList.svelte";
+import type { ClientMedia } from "$lib/types";
+import prettyBytes from "pretty-bytes";
 
-  let lastSelectedIndex: number | null = null;
+let lastSelectedIndex: number | null = null;
 
-  let { medias, selectedMedias = $bindable([]) }: {
-    medias: ClientMedia[];
-    selectedMedias?: ClientMedia[];
-  } = $props();
+let {
+	medias,
+	selectedMedias = $bindable([]),
+}: {
+	medias: ClientMedia[];
+	selectedMedias?: ClientMedia[];
+} = $props();
 
-  function loadVideo(event: Event) {
-    (event.target as HTMLVideoElement).preload = "metadata";
-  }
+function loadVideo(event: Event) {
+	(event.target as HTMLVideoElement).preload = "metadata";
+}
 
-  function isSelected(media: ClientMedia) {
-    // Since media is a proxy, we can't use selectedMedia.includes(media)
-    return selectedMedias.some(selected => selected.id === media.id);
-  }
+function isSelected(media: ClientMedia) {
+	// Since media is a proxy, we can't use selectedMedia.includes(media)
+	return selectedMedias.some((selected) => selected.id === media.id);
+}
 
-  function handleClick(index: number, event: { ctrlKey: boolean, shiftKey: boolean }) {
-    const media = medias[index];
-    const selected = isSelected(media);
+function handleClick(
+	index: number,
+	event: { ctrlKey: boolean; shiftKey: boolean },
+) {
+	const media = medias[index];
+	const selected = isSelected(media);
 
-    if (event.ctrlKey) {
-      if (selected) {
-        selectedMedias = selectedMedias.filter(selected => selected.id !== media.id);
-        lastSelectedIndex = null;
-      } else {
-        selectedMedias.push(media);
-        lastSelectedIndex = index;
-      }
-    } else if (event.shiftKey && lastSelectedIndex !== null) {
-      const start = Math.min(lastSelectedIndex, index);
-      const end = Math.max(lastSelectedIndex, index);
-      selectedMedias = medias.slice(start, end + 1);
-      lastSelectedIndex = index;
-    } else {
-      if (selectedMedias.length === 1 && selected) {
-        selectedMedias = [];
-        lastSelectedIndex = null;
-      } else {
-        selectedMedias = [media];
-        lastSelectedIndex = index;
-      }
-    }
-  }
+	if (event.ctrlKey) {
+		if (selected) {
+			selectedMedias = selectedMedias.filter(
+				(selected) => selected.id !== media.id,
+			);
+			lastSelectedIndex = null;
+		} else {
+			selectedMedias.push(media);
+			lastSelectedIndex = index;
+		}
+	} else if (event.shiftKey && lastSelectedIndex !== null) {
+		const start = Math.min(lastSelectedIndex, index);
+		const end = Math.max(lastSelectedIndex, index);
+		selectedMedias = medias.slice(start, end + 1);
+		lastSelectedIndex = index;
+	} else {
+		if (selectedMedias.length === 1 && selected) {
+			selectedMedias = [];
+			lastSelectedIndex = null;
+		} else {
+			selectedMedias = [media];
+			lastSelectedIndex = index;
+		}
+	}
+}
 
-  function handleDoubleClick(media: ClientMedia) {
-    selectedMedias = [];
-    // TODO: Fullscreen
-  }
+function handleDoubleClick(media: ClientMedia) {
+	selectedMedias = [];
+	// TODO: Fullscreen
+}
 </script>
 
 
@@ -97,53 +105,53 @@
     try refreshing the media database.</p>
 {/if}
 
-<style lang="scss">
-  ul {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));
-    list-style: none;
-    padding: 0;
-    overflow-y: auto;
+<style>
+ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));
+  list-style: none;
+  padding: 0;
+  overflow-y: auto;
+}
+
+p {
+  text-align: center;
+}
+
+li > div {
+  display: flex;
+  flex-direction: column;
+  padding: calc(.5em - 1px); /* 1px border */
+  box-sizing: border-box;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent; /* Prevents jumping when becoming selected */
+  text-align: left;
+  width: 100%;
+  height: 100%;
+
+  &.selected {
+    background-color: #93c5ef;
+    border: 1px solid #4299e1;
   }
+}
 
-  p {
-    text-align: center;
+img, video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: black;
+  margin-bottom: .5em;
+}
+
+#details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  justify-items: end;
+  text-align: end;
+
+  & > h4 {
+    justify-self: start;
   }
-
-  li > div {
-    display: flex;
-    flex-direction: column;
-    padding: calc(.5em - 1px); /* 1px border */
-    box-sizing: border-box;
-    cursor: pointer;
-    background: none;
-    border: 1px solid transparent; /* Prevents jumping when becoming selected */
-    text-align: left;
-    width: 100%;
-    height: 100%;
-
-    &.selected {
-      background-color: #93c5ef;
-      border: 1px solid #4299e1;
-    }
-  }
-
-  img, video {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
-    background: black;
-    margin-bottom: .5em;
-  }
-
-  #details {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    justify-items: end;
-    text-align: end;
-
-    & > h4 {
-      justify-self: start;
-    }
-  }
+}
 </style>
