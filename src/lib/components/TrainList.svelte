@@ -1,27 +1,32 @@
 <script lang="ts">
-  import TagList from "$lib/components/TagList.svelte";
-  import { TRAIN_TAGS } from "$lib/constants";
-  import { TagSet } from "$lib/types";
+import TagList from "$lib/components/TagList.svelte";
+import { TRAIN_TAGS } from "$lib/constants";
+import { TagSet } from "$lib/types";
+import { browser } from "$app/environment";
 
-  let { trains = $bindable() }: {
-    trains: TagSet[];
-  } = $props();
+let {
+	trains = $bindable(),
+}: {
+	trains: TagSet[];
+} = $props();
 </script>
 
 <div id="container">
   <ul>
-    {#each trains as _, trainIndex}
-      <li>
-        <button type="button" onclick={event => {
-          event.stopPropagation();
-          trains.splice(trainIndex, 1);
-        }}>
-          <span>🚂</span>
-          <span>❌</span>
-        </button>
-        <TagList bind:tags={trains[trainIndex]} autocompleteTags={TRAIN_TAGS} />
-      </li>
-    {/each}
+    {#if browser}
+      {#each trains as _, trainIndex}
+        <li>
+          <button type="button" onclick={event => {
+            event.stopPropagation();
+            trains.splice(trainIndex, 1);
+          }}>
+            <span>🚂</span>
+            <span>❌</span>
+          </button>
+          <TagList bind:tags={trains[trainIndex]} autocompleteTags={TRAIN_TAGS} />
+        </li>
+      {/each}
+    {/if}
   </ul>
   <button onclick={event => {
     event.stopPropagation();
