@@ -9,6 +9,10 @@ let {
 }: {
 	trains: TagSet[];
 } = $props();
+
+function addTrain() {
+	trains.push(new TagSet(TRAIN_TAGS));
+}
 </script>
 
 <div id="container">
@@ -30,7 +34,7 @@ let {
   </ul>
   <button onclick={event => {
     event.stopPropagation();
-    trains.push(new TagSet(TRAIN_TAGS));
+    addTrain();
   }}>
     Add train
   </button>
