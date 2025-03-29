@@ -21,6 +21,7 @@ import prettyBytes from "pretty-bytes";
 
 // === Media loading ===
 let { data } = $props();
+let serverMedias = $state.raw(data.medias);
 
 let loadingData = $state(false);
 
@@ -28,13 +29,14 @@ async function refresh() {
 	if (loadingData) return;
 	loadingData = true;
 	const response = await fetch("refresh");
-	data = await response.json();
+	const newData = await response.json();
+	serverMedias = newData.medias;
+	refreshClientMedia();
 	loadingData = false;
 }
 
-let medias: ClientMedia[] = $state(
-	data.medias
-		// Pre-process some values, so they don't need to be re-calculated whenever the filters change
+function refreshClientMedia() {
+	medias = serverMedias
 		.map((media) => {
 			let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
 			let trainTags = $state(
@@ -54,26 +56,21 @@ let medias: ClientMedia[] = $state(
 						trainTags = tags;
 					},
 				},
+				// Pre-process some values, so they don't need to be re-calculated whenever the filters change
 				type: (media.duration === 0 ? "image" : "video") as "image" | "video",
 				numTrains: media.trainTags.length,
-				hasTags: media.trainTags.some((train) => train.size !== 0),
+				hasTags: media.trainTags.some((train) => train.length !== 0),
 			};
 		})
 		// Sort by path
-		.sort((a, b) => a.path.localeCompare(b.path)),
-);
+		.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+let medias: ClientMedia[] = $state.raw([]);
+refreshClientMedia();
 
 // === Saving ===
-let serverMedias = $state.raw(
-	data.medias.map((media) => ({
-		// Constrain properties to just those used for saving to reduce memory usage
-		id: media.id,
-		contextTags: media.contextTags,
-		trainTags: media.trainTags,
-	})),
-);
-
-function sortTrainTags(trainTags: Set<string>[]) {
+function sortTrainTags(trainTags: Iterable<string>[]) {
 	return trainTags
 		.map((train) => [...train].sort())
 		.toSorted((a, b) => {
@@ -92,10 +89,10 @@ let modifiedMedias = $derived(
 		);
 		if (!serverMedia)
 			throw new Error(`Media with ID ${currentMedia.id} not found`);
-		if (currentMedia.contextTags.get().size !== serverMedia.contextTags.size)
+		if (currentMedia.contextTags.get().size !== serverMedia.contextTags.length)
 			return true;
 		for (const tag of currentMedia.contextTags.get()) {
-			if (!serverMedia.contextTags.has(tag)) return true;
+			if (!serverMedia.contextTags.includes(tag)) return true;
 		}
 		if (currentMedia.trainTags.get().length !== serverMedia.trainTags.length)
 			return true;
@@ -136,10 +133,10 @@ async function save() {
 				(media) => media.id === serverMedia.id,
 			);
 			if (clientMedia) {
-				serverMedia.contextTags = new Set(clientMedia.contextTags.get());
+				serverMedia.contextTags = [...clientMedia.contextTags.get()];
 				serverMedia.trainTags = clientMedia.trainTags
 					.get()
-					.map((train) => new Set(train));
+					.map((train) => [...train]);
 			}
 			return serverMedia;
 		});

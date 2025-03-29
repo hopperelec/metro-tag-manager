@@ -13,8 +13,8 @@ interface BaseMedia {
 }
 
 export type ServerMedia = BaseMedia & {
-	contextTags: Set<string>;
-	trainTags: Set<string>[];
+	contextTags: string[];
+	trainTags: string[][];
 };
 
 export type ClientMedia = BaseMedia & {
@@ -42,7 +42,7 @@ export type AutocompleteTag = {
 export class TagSet extends SvelteSet<string> {
 	constructor(
 		private autocomplete: AutocompleteTag[],
-		tags: Set<string> = new Set(),
+		tags: Iterable<string> = [],
 	) {
 		super(tags);
 		// Svelte tracks changes inside a constructor,

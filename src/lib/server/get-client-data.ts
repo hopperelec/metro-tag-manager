@@ -12,13 +12,13 @@ export default async function getClientData(): Promise<{
 	});
 	return {
 		medias: medias.map((media) => {
-			const trainTagsMap = new Map<number, Set<string>>();
+			const trainTagsMap = new Map<number, string[]>();
 			for (const { trainId, tag } of media.trainTags) {
 				const currentTags = trainTagsMap.get(trainId);
 				if (currentTags) {
-					currentTags.add(tag);
+					currentTags.push(tag);
 				} else {
-					trainTagsMap.set(trainId, new Set([tag]));
+					trainTagsMap.set(trainId, [tag]);
 				}
 			}
 			return {
@@ -28,7 +28,7 @@ export default async function getClientData(): Promise<{
 				duration: media.duration ?? undefined,
 				width: media.width ?? undefined,
 				height: media.height ?? undefined,
-				contextTags: new Set(media.contextTags.map((tag) => tag.tag)),
+				contextTags: media.contextTags.map((tag) => tag.tag),
 				trainTags: [...trainTagsMap.values()],
 			};
 		}),
