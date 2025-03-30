@@ -22,6 +22,7 @@ export const WIDTH_RANGE = { min: 0, max: 7680 };
 export const HEIGHT_RANGE = { min: 0, max: 4320 };
 export const DURATION_RANGE = { min: 0, max: 7200 };
 export const NUMBER_TRAINS_RANGE = { min: 0, max: 10 };
+export const TIME_FILTER_RANGE = { min: 0, max: 24 * 60 * 60 };
 
 export const SIZE_REGEX = new RegExp(/^(?<number>\d)+\s*((?<unit>[kmg])?b)?$/i);
 

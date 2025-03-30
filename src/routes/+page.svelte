@@ -12,6 +12,7 @@ import {
 	NUMBER_TRAINS_RANGE,
 	SIZE_RANGE,
 	SIZE_REGEX,
+	TIME_FILTER_RANGE,
 	TRAIN_TAGS,
 	WIDTH_RANGE,
 } from "$lib/constants";
@@ -35,39 +36,74 @@ async function refresh() {
 	loadingData = false;
 }
 
+const filenameRegex = new RegExp(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.[^.]+/);
+const dirRegex = new RegExp(/^(\d{4})-(\d{2})-(\d{2})/);
+
+function getDateFromPath(path: string) {
+	const parts = path.split(/[\/\\]/);
+
+	const filename = parts.pop();
+	if (!filename) return null;
+
+	const filenameMatch = filenameRegex.exec(filename);
+	if (filenameMatch) {
+		const [_, year, month, day, hours, minutes, seconds] = filenameMatch;
+		return new Date(+year, +month - 1, +day, +hours, +minutes, +seconds);
+	}
+
+	if (parts.length === 1) return null;
+	const dirMatch = dirRegex.exec(parts[0]);
+	if (dirMatch) {
+		const [_, year, month, day] = dirMatch;
+		return new Date(+year, +month - 1, +day);
+	}
+
+	return null;
+}
+
 function refreshClientMedia() {
-	medias = serverMedias
-		.map((media) => {
-			let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
-			let trainTags = $state(
-				media.trainTags.map((v) => new TagSet(TRAIN_TAGS, v)),
-			);
-			return {
-				...media,
-				contextTags: {
-					get: () => contextTags,
-					set: (tags: TagSet) => {
-						contextTags = tags;
-					},
+	dateRange = { min: Number.POSITIVE_INFINITY, max: 0 };
+
+	medias = [];
+	for (const media of serverMedias) {
+		let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
+		let trainTags = $state(
+			media.trainTags.map((v) => new TagSet(TRAIN_TAGS, v)),
+		);
+		const date = getDateFromPath(media.path);
+		if (date) {
+			const dateNumber = Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
+			if (dateNumber < dateRange.min) dateRange.min = dateNumber;
+			if (dateNumber > dateRange.max) dateRange.max = dateNumber;
+		}
+		medias.push({
+			...media,
+			contextTags: {
+				get: () => contextTags,
+				set: (tags: TagSet) => {
+					contextTags = tags;
 				},
-				trainTags: {
-					get: () => trainTags,
-					set: (tags: TagSet[]) => {
-						trainTags = tags;
-					},
+			},
+			trainTags: {
+				get: () => trainTags,
+				set: (tags: TagSet[]) => {
+					trainTags = tags;
 				},
-				// Pre-process some values, so they don't need to be re-calculated whenever the filters change
-				type: (media.duration === 0 ? "image" : "video") as "image" | "video",
-				numTrains: media.trainTags.length,
-				hasTags: media.trainTags.some((train) => train.length !== 0),
-			};
-		})
-		// Sort by path
-		.sort((a, b) => a.path.localeCompare(b.path));
+			},
+			// Pre-process some values, so they don't need to be re-calculated whenever the filters change
+			type: (media.duration === 0 ? "image" : "video") as "image" | "video",
+			numTrains: media.trainTags.length,
+			hasTags: media.trainTags.some((train) => train.length !== 0),
+			date,
+		});
+	}
+	// Sort medias by path
+	medias.sort((a, b) => a.path.localeCompare(b.path));
+
+	dateFilter = { ...dateRange };
 }
 
 let medias: ClientMedia[] = $state.raw([]);
-refreshClientMedia();
 
 // === Saving ===
 function sortTrainTags(trainTags: Iterable<string>[]) {
@@ -161,6 +197,7 @@ let widthFilter = $state(WIDTH_RANGE);
 let heightFilter = $state(HEIGHT_RANGE);
 let durationFilter = $state(DURATION_RANGE);
 let numberTrainsFilter = $state(NUMBER_TRAINS_RANGE);
+let timeFilter = $state(TIME_FILTER_RANGE);
 let hasTagsFilter: "off" | "ignore" | "on" = $state("ignore");
 let tagFilter: GroupedFilter = $state({
 	group: true,
@@ -168,6 +205,17 @@ let tagFilter: GroupedFilter = $state({
 	or: false,
 	invert: false,
 	filters: [],
+});
+
+const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
+const currentDateNumber = Math.floor(Date.now() / MILLISECONDS_IN_DAY);
+let dateRange = $state({
+	min: 0,
+	max: currentDateNumber,
+});
+let dateFilter = $state({
+	min: 0,
+	max: currentDateNumber,
 });
 
 function insideRange(
@@ -193,6 +241,32 @@ let filteredMedias = $derived(
 			insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
 			insideRange(media.duration, DURATION_RANGE, durationFilter) &&
 			insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
+      (
+        (
+          timeFilter.min === TIME_FILTER_RANGE.min &&
+          timeFilter.max === TIME_FILTER_RANGE.max
+        ) || (
+          media.date !== null &&
+          insideRange(
+            media.date.getHours() * 3600 + media.date.getMinutes() * 60 + media.date.getSeconds(),
+            TIME_FILTER_RANGE,
+            timeFilter,
+          )
+        )
+      ) &&
+      (
+        (
+          dateFilter.min === dateRange.min &&
+          dateFilter.max === dateRange.max
+        ) || (
+          media.date !== null &&
+          insideRange(
+            Math.floor(media.date.getTime() / MILLISECONDS_IN_DAY),
+            dateRange,
+            dateFilter,
+          )
+        )
+      ) &&
 			(hasTagsFilter !== "on" || media.hasTags) &&
 			(hasTagsFilter !== "off" || !media.hasTags) &&
 			(!tagFilter ||
@@ -284,6 +358,8 @@ function parseDuration(value: string) {
 	}
 	return parsed;
 }
+
+refreshClientMedia();
 </script>
 
 <div id="page-container">
@@ -340,6 +416,41 @@ function parseDuration(value: string) {
         bind:selectedRange={numberTrainsFilter}
         parse={Number.parseInt}
         possibleRange={NUMBER_TRAINS_RANGE}
+      />
+    </div>
+    <div>
+      <label for="time">Time of day</label>
+      <RangeSlider bind:selectedRange={timeFilter}
+                   parse={parseDuration}
+                   possibleRange={TIME_FILTER_RANGE}
+                   render={(value) => {
+                     const hours = Math.floor(value / 3600);
+                     const minutes = Math.floor(value / 60) % 60;
+                     const seconds = value % 60;
+                     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+                   }}
+      />
+    </div>
+    <div>
+      <label for="date">Date</label>
+      <RangeSlider bind:selectedRange={dateFilter}
+                   parse={(value) => {
+                     const parts = value.split("/");
+                     if (parts.length !== 3) return Number.NaN;
+                     const [day, month, year] = parts.map(Number);
+                     if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) return Number.NaN;
+                     return new Date(2000+year, month - 1, day).getTime() / MILLISECONDS_IN_DAY;
+                   }}
+                   possibleRange={dateRange}
+                   render={(value) => {
+                     const date = new Date(value * MILLISECONDS_IN_DAY);
+                     const formatter = new Intl.DateTimeFormat('en-GB', {
+                       day: '2-digit',
+                       month: '2-digit',
+                       year: '2-digit'
+                     });
+                     return formatter.format(date);
+                   }}
       />
     </div>
     <div>

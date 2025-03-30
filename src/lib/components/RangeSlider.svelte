@@ -39,12 +39,11 @@ function clamp(value: number) {
 
 function calculateHandlePosition(side: Side) {
 	return (
-		possibleMinPosition + (100 * clamp(selectedRange[side])) / possibleWidth
+		(clamp(selectedRange[side]) - possibleRange.min) / possibleWidth
 	);
 }
 
 let possibleWidth = $derived(possibleRange.max - possibleRange.min);
-let possibleMinPosition = $derived(100 * possibleRange.min);
 let selectedPosition = $derived({
 	min: calculateHandlePosition("min"),
 	max: calculateHandlePosition("max"),
@@ -71,7 +70,7 @@ function setActiveHandle(side: Side) {
 		if (!slider) return;
 		const rect = slider.getBoundingClientRect();
 		const value = clamp(
-			Math.round((possibleWidth * (event.clientX - rect.left)) / rect.width),
+			Math.round(possibleRange.min + (possibleWidth * (event.clientX - rect.left)) / rect.width),
 		);
 		setSelectedValue(side, value);
 	}
@@ -116,7 +115,7 @@ function handleInputKeydown(event: KeyboardEvent) {
     onmousedown={() => setActiveHandle(side)}
     ontouchstart={() => setActiveHandle(side)}
     role="slider"
-    style:left={`${selectedPosition[side]}%`}
+    style:left={`${100 * selectedPosition[side]}%`}
     tabindex="0"
   >
     <input
@@ -143,8 +142,8 @@ function handleInputKeydown(event: KeyboardEvent) {
   <div bind:this={slider} class="slider" class:shake>
     <div
       class="body"
-      style:left={`${selectedPosition.min}%`}
-      style:right={`${100 - selectedPosition.max}%`}
+      style:left={`${100 * selectedPosition.min}%`}
+      style:right={`${100 * (1 - selectedPosition.max)}%`}
     ></div>
     {@render handle("min")}
     {@render handle("max")}

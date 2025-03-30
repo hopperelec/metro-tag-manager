@@ -29,6 +29,7 @@ export type ClientMedia = BaseMedia & {
 	type: "image" | "video";
 	numTrains: number;
 	hasTags: boolean;
+	date: Date | null;
 };
 
 export type AutocompleteTag = {
