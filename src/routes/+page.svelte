@@ -62,7 +62,7 @@ function getDateFromPath(path: string) {
 }
 
 function refreshClientMedia() {
-	dateRange = { min: Number.POSITIVE_INFINITY, max: 0 };
+	const newDateRange = { min: Number.POSITIVE_INFINITY, max: 0 };
 
 	medias = [];
 	for (const media of serverMedias) {
@@ -73,8 +73,8 @@ function refreshClientMedia() {
 		const date = getDateFromPath(media.path);
 		if (date) {
 			const dateNumber = Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
-			if (dateNumber < dateRange.min) dateRange.min = dateNumber;
-			if (dateNumber > dateRange.max) dateRange.max = dateNumber;
+			if (dateNumber < newDateRange.min) newDateRange.min = dateNumber;
+			if (dateNumber > newDateRange.max) newDateRange.max = dateNumber;
 		}
 		medias.push({
 			...media,
@@ -100,7 +100,10 @@ function refreshClientMedia() {
 	// Sort medias by path
 	medias.sort((a, b) => a.path.localeCompare(b.path));
 
-	dateFilter = { ...dateRange };
+  if (newDateRange.min !== Number.POSITIVE_INFINITY) {
+    dateRange = newDateRange;
+    dateFilter = { ...dateRange };
+  }
 }
 
 let medias: ClientMedia[] = $state.raw([]);
@@ -209,7 +212,7 @@ let tagFilter: GroupedFilter = $state({
 
 const MILLISECONDS_IN_DAY = 1000 * 60 * 60 * 24;
 const currentDateNumber = Math.floor(Date.now() / MILLISECONDS_IN_DAY);
-let dateRange = $state({
+let dateRange = $state.raw({
 	min: 0,
 	max: currentDateNumber,
 });
