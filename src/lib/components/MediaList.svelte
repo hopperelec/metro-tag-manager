@@ -72,10 +72,18 @@ function handleDoubleClick(media: ClientMedia) {
           onclick={(event) => handleClick(index, event)}
           ondblclick={() => handleDoubleClick(media)}
           onkeydown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          handleClick(index, event);
-        }
-      }}
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleClick(index, event);
+            } else if (event.ctrlKey && event.key === 'a') {
+              event.preventDefault();
+              if (selectedMedias.length === medias.length) {
+                selectedMedias = [];
+              } else {
+                selectedMedias = [...medias];
+              }
+            }
+          }}
           role="button"
           tabindex="0"
         >
