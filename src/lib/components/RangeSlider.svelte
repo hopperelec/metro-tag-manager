@@ -38,9 +38,7 @@ function clamp(value: number) {
 }
 
 function calculateHandlePosition(side: Side) {
-	return (
-		(clamp(selectedRange[side]) - possibleRange.min) / possibleWidth
-	);
+	return (clamp(selectedRange[side]) - possibleRange.min) / possibleWidth;
 }
 
 let possibleWidth = $derived(possibleRange.max - possibleRange.min);
@@ -70,7 +68,10 @@ function setActiveHandle(side: Side) {
 		if (!slider) return;
 		const rect = slider.getBoundingClientRect();
 		const value = clamp(
-			Math.round(possibleRange.min + (possibleWidth * (event.clientX - rect.left)) / rect.width),
+			Math.round(
+				possibleRange.min +
+					(possibleWidth * (event.clientX - rect.left)) / rect.width,
+			),
 		);
 		setSelectedValue(side, value);
 	}

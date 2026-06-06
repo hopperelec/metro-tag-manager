@@ -36,7 +36,9 @@ async function refresh() {
 	loadingData = false;
 }
 
-const filenameRegex = new RegExp(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.[^.]+/);
+const filenameRegex = new RegExp(
+	/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.[^.]+/,
+);
 const dirRegex = new RegExp(/^(\d{4})-(\d{2})-(\d{2})/);
 
 function getDateFromPath(path: string) {
@@ -100,10 +102,10 @@ function refreshClientMedia() {
 	// Sort medias by path
 	medias.sort((a, b) => a.path.localeCompare(b.path));
 
-  if (newDateRange.min !== Number.POSITIVE_INFINITY) {
-    dateRange = newDateRange;
-    dateFilter = { ...dateRange };
-  }
+	if (newDateRange.min !== Number.POSITIVE_INFINITY) {
+		dateRange = newDateRange;
+		dateFilter = { ...dateRange };
+	}
 }
 
 let medias: ClientMedia[] = $state.raw([]);
@@ -244,32 +246,23 @@ let filteredMedias = $derived(
 			insideRange(media.height, HEIGHT_RANGE, heightFilter) &&
 			insideRange(media.duration, DURATION_RANGE, durationFilter) &&
 			insideRange(media.numTrains, NUMBER_TRAINS_RANGE, numberTrainsFilter) &&
-      (
-        (
-          timeFilter.min === TIME_FILTER_RANGE.min &&
-          timeFilter.max === TIME_FILTER_RANGE.max
-        ) || (
-          media.date !== null &&
-          insideRange(
-            media.date.getHours() * 3600 + media.date.getMinutes() * 60 + media.date.getSeconds(),
-            TIME_FILTER_RANGE,
-            timeFilter,
-          )
-        )
-      ) &&
-      (
-        (
-          dateFilter.min === dateRange.min &&
-          dateFilter.max === dateRange.max
-        ) || (
-          media.date !== null &&
-          insideRange(
-            Math.floor(media.date.getTime() / MILLISECONDS_IN_DAY),
-            dateRange,
-            dateFilter,
-          )
-        )
-      ) &&
+			((timeFilter.min === TIME_FILTER_RANGE.min &&
+				timeFilter.max === TIME_FILTER_RANGE.max) ||
+				(media.date !== null &&
+					insideRange(
+						media.date.getHours() * 3600 +
+							media.date.getMinutes() * 60 +
+							media.date.getSeconds(),
+						TIME_FILTER_RANGE,
+						timeFilter,
+					))) &&
+			((dateFilter.min === dateRange.min && dateFilter.max === dateRange.max) ||
+				(media.date !== null &&
+					insideRange(
+						Math.floor(media.date.getTime() / MILLISECONDS_IN_DAY),
+						dateRange,
+						dateFilter,
+					))) &&
 			(hasTagsFilter !== "on" || media.hasTags) &&
 			(hasTagsFilter !== "off" || !media.hasTags) &&
 			(!tagFilter ||

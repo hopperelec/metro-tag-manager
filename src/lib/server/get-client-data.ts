@@ -5,7 +5,7 @@ export default async function getClientData(): Promise<{
 	medias: ServerMedia[];
 }> {
 	const medias = await prisma.media.findMany({
-    where: { exists: true },
+		where: { exists: true },
 		include: {
 			contextTags: { select: { tag: true } },
 			trainTags: { select: { trainId: true, tag: true } },
