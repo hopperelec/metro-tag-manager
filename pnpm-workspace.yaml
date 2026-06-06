@@ -1,0 +1,7 @@
+allowBuilds:
+  '@biomejs/biome': false
+  '@parcel/watcher': false
+  '@prisma/client': false
+  '@prisma/engines': false
+  esbuild: false
+  prisma: false
