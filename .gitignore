@@ -4,5 +4,6 @@
 /.vercel/
 /.idea/
 /prisma/tags.db
+/prisma/generated/
 /vite.config.ts.timestamp-*.mjs
 /.env

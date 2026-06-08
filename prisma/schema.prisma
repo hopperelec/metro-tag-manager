@@ -1,11 +1,11 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider        = "prisma-client"
   previewFeatures = ["relationJoins"]
+  output          = "./generated"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./tags.db"
 }
 
 model Media {

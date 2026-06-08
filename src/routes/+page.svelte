@@ -19,10 +19,11 @@ import {
 import { type GroupedFilter, filterGlobal } from "$lib/filters";
 import { type ClientMedia, type Range, TagSet } from "$lib/types";
 import prettyBytes from "pretty-bytes";
+import { untrack } from "svelte";
 
 // === Media loading ===
 let { data } = $props();
-let serverMedias = $state.raw(data.medias);
+let serverMedias = $state.raw(untrack(() => data.medias));
 
 let loadingData = $state(false);
 

@@ -1,6 +1,4 @@
 extends:
-  - stylelint-config-standard-scss
-  - stylelint-config-prettier-scss
   - stylelint-config-html/html
   - stylelint-config-html/svelte
 plugins: stylelint-use-nesting
