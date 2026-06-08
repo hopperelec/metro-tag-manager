@@ -3,6 +3,12 @@ import TagList from "$lib/components/TagList.svelte";
 import TrainList from "$lib/components/TrainList.svelte";
 import type { ClientMedia } from "$lib/types";
 import prettyBytes from "pretty-bytes";
+import { untrack } from "svelte";
+import { SvelteSet } from "svelte/reactivity";
+
+const INITIAL_SIZE = 50;
+const PAGE_SIZE = 30;
+const INFINITE_SCROLL_THRESHOLD = 1000; // pixels from the bottom to trigger loading more
 
 let lastSelectedIndex: number | null = null;
 
@@ -14,13 +20,37 @@ let {
 	selectedMedias?: ClientMedia[];
 } = $props();
 
-function loadVideo(event: Event) {
-	(event.target as HTMLVideoElement).preload = "metadata";
+let selectedIds = $derived(new SvelteSet(selectedMedias.map((m) => m.id)));
+function isSelected(media: ClientMedia) {
+  return selectedIds.has(media.id);
 }
 
-function isSelected(media: ClientMedia) {
-	// Since media is a proxy, we can't use selectedMedia.includes(media)
-	return selectedMedias.some((selected) => selected.id === media.id);
+let visibleCount = $state(INITIAL_SIZE);
+let displayMedias = $derived(medias.slice(0, visibleCount));
+let loadMoreElement = $state<HTMLElement>();
+
+// Reset pagination when the medias array identity changes
+$effect(() => {
+  medias;
+  untrack(() => {
+    visibleCount = INITIAL_SIZE;
+  });
+});
+
+// Infinite loading scroll detection
+$effect(() => {
+  if (!loadMoreElement) return;
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      visibleCount += PAGE_SIZE;
+    }
+  }, { rootMargin: `0px 0px ${INFINITE_SCROLL_THRESHOLD}px 0px` });
+  observer.observe(loadMoreElement);
+  return () => observer.disconnect();
+});
+
+function loadVideo(event: Event) {
+	(event.target as HTMLVideoElement).preload = "metadata";
 }
 
 function handleClick(
@@ -62,10 +92,9 @@ function handleDoubleClick(media: ClientMedia) {
 }
 </script>
 
-
 {#if selectedMedias}
   <ul>
-    {#each medias as media, index (media.id)}
+    {#each displayMedias as media, index (media.id)}
       {@const sizeStr = media.size === undefined ? "Unknown" : prettyBytes(media.size)}
       <li>
         <div
@@ -108,6 +137,9 @@ function handleDoubleClick(media: ClientMedia) {
       </li>
     {/each}
   </ul>
+  {#if visibleCount < medias.length}
+    <p bind:this={loadMoreElement} class="load-more-trigger">Loading more...</p>
+  {/if}
 {:else}
   <p>No media found matching your filters.
     If you were expecting something something to show up,
@@ -169,5 +201,12 @@ img, video {
   & > h4 {
     justify-self: start;
   }
+}
+
+.load-more-trigger {
+    text-align: center;
+    padding: 1.5em;
+    font-style: italic;
+    color: #666;
 }
 </style>
