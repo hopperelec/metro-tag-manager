@@ -48,7 +48,7 @@ function removeFilter(index: number) {
             {:else}
               <input bind:value={filter.filters[i].tag} type="text" />
             {/if}
-            <button type="button" class="remove-button" onclick={() => removeFilter(i)}>X</button>
+            <button type="button" class="remove-button" onclick={() => removeFilter(i)} title="Remove filter">X</button>
           </div>
         </li>
       {/each}
