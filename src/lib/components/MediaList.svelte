@@ -66,6 +66,7 @@ function handleDoubleClick(media: ClientMedia) {
 {#if selectedMedias}
   <ul>
     {#each medias as media, index (media.id)}
+      {@const sizeStr = media.size === undefined ? "Unknown" : prettyBytes(media.size)}
       <li>
         <div
           class:selected={isSelected(media)}
@@ -95,9 +96,9 @@ function handleDoubleClick(media: ClientMedia) {
           {/if}
           <div id="details">
             <h4>Path</h4>
-            <span>{media.path}</span>
+            <span title={media.path}>{media.path}</span>
             <h4>Size</h4>
-            <span>{media.size === undefined ? "Unknown" : prettyBytes(media.size)}</span>
+            <span title={sizeStr}>{sizeStr}</span>
             <h4>Context tags</h4>
             <TagList bind:tags={media.contextTags.get, media.contextTags.set} />
             <h4>Train tags</h4>
@@ -157,6 +158,13 @@ img, video {
   grid-template-columns: auto 1fr;
   justify-items: end;
   text-align: end;
+
+  & > * {
+    justify-self: stretch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   & > h4 {
     justify-self: start;
