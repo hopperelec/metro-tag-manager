@@ -20,6 +20,7 @@ import { type GroupedFilter, filterGlobal } from "$lib/filters";
 import { type ClientMedia, type Range, TagSet } from "$lib/types";
 import prettyBytes from "pretty-bytes";
 import { untrack } from "svelte";
+import { SvelteMap } from "svelte/reactivity";
 
 // === Media loading ===
 let { data } = $props();
@@ -67,41 +68,41 @@ function getDateFromPath(path: string) {
 function refreshClientMedia() {
 	const newDateRange = { min: Number.POSITIVE_INFINITY, max: 0 };
 
-	medias = [];
-	for (const media of serverMedias) {
-		let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
-		let trainTags = $state(
-			media.trainTags.map((v) => new TagSet(TRAIN_TAGS, v)),
-		);
-		const date = getDateFromPath(media.path);
-		if (date) {
-			const dateNumber = Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
-			if (dateNumber < newDateRange.min) newDateRange.min = dateNumber;
-			if (dateNumber > newDateRange.max) newDateRange.max = dateNumber;
-		}
-		medias.push({
-			...media,
-			contextTags: {
-				get: () => contextTags,
-				set: (tags: TagSet) => {
-					contextTags = tags;
-				},
-			},
-			trainTags: {
-				get: () => trainTags,
-				set: (tags: TagSet[]) => {
-					trainTags = tags;
-				},
-			},
-			// Pre-process some values, so they don't need to be re-calculated whenever the filters change
-			type: (media.duration === 0 ? "image" : "video") as "image" | "video",
-			numTrains: media.trainTags.length,
-			hasTags: media.trainTags.some((train) => train.length !== 0),
-			date,
-		});
-	}
-	// Sort medias by path
-	medias.sort((a, b) => a.path.localeCompare(b.path));
+  const newMedias: ClientMedia[] = [];
+  for (const media of serverMedias) {
+    let contextTags = $state(new TagSet(CONTEXT_TAGS, media.contextTags));
+    let trainTags = $state(
+      media.trainTags.map((v) => new TagSet(TRAIN_TAGS, v)),
+    );
+    const date = getDateFromPath(media.path);
+    if (date) {
+      const dateNumber = Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
+      if (dateNumber < newDateRange.min) newDateRange.min = dateNumber;
+      if (dateNumber > newDateRange.max) newDateRange.max = dateNumber;
+    }
+    newMedias.push({
+      ...media,
+      contextTags: {
+        get: () => contextTags,
+        set: (tags: TagSet) => {
+          contextTags = tags;
+        },
+      },
+      trainTags: {
+        get: () => trainTags,
+        set: (tags: TagSet[]) => {
+          trainTags = tags;
+        },
+      },
+      // Pre-process some values, so they don't need to be re-calculated whenever the filters change
+      type: (media.duration === 0 ? "image" : "video") as "image" | "video",
+      numTrains: media.trainTags.length,
+      hasTags: media.trainTags.some((train) => train.length !== 0),
+      date,
+    });
+  }
+  newMedias.sort((a, b) => a.path.localeCompare(b.path));
+  medias = newMedias;
 
 	if (newDateRange.min !== Number.POSITIVE_INFINITY) {
 		dateRange = newDateRange;
@@ -124,34 +125,40 @@ function sortTrainTags(trainTags: Iterable<string>[]) {
 		});
 }
 
+let serverMediasById = $derived(
+  new SvelteMap(serverMedias.map((media) => [media.id, media])),
+)
+
 let modifiedMedias = $derived(
-	medias.filter((currentMedia) => {
-		const serverMedia = serverMedias.find(
-			(media) => media.id === currentMedia.id,
-		);
-		if (!serverMedia)
-			throw new Error(`Media with ID ${currentMedia.id} not found`);
-		if (currentMedia.contextTags.get().size !== serverMedia.contextTags.length)
-			return true;
-		for (const tag of currentMedia.contextTags.get()) {
-			if (!serverMedia.contextTags.includes(tag)) return true;
-		}
-		if (currentMedia.trainTags.get().length !== serverMedia.trainTags.length)
-			return true;
-		const sortedCurrentTrainTags = sortTrainTags(currentMedia.trainTags.get());
-		const sortedOriginalTrainTags = sortTrainTags(serverMedia.trainTags);
-		for (let i = 0; i < sortedCurrentTrainTags.length; i++) {
-			if (
-				sortedCurrentTrainTags[i].length !== sortedOriginalTrainTags[i].length
-			)
-				return true;
-			for (let j = 0; j < sortedCurrentTrainTags[i].length; j++) {
-				if (sortedCurrentTrainTags[i][j] !== sortedOriginalTrainTags[i][j])
-					return true;
-			}
-		}
-		return false;
-	}),
+  medias.filter((currentMedia) => {
+    const serverMedia = serverMediasById.get(currentMedia.id);
+    if (!serverMedia)
+      throw new Error(`Media with ID ${currentMedia.id} not found`);
+
+    const currentContextTags = currentMedia.contextTags.get();
+    if (currentContextTags.size !== serverMedia.contextTags.length)
+      return true;
+    for (const tag of currentContextTags) {
+      if (!serverMedia.contextTags.includes(tag)) return true;
+    }
+
+    const currentTrainTags = currentMedia.trainTags.get();
+    if (currentTrainTags.length !== serverMedia.trainTags.length)
+      return true;
+    const sortedCurrentTrainTags = sortTrainTags(currentTrainTags);
+    const sortedOriginalTrainTags = sortTrainTags(serverMedia.trainTags);
+    for (let i = 0; i < sortedCurrentTrainTags.length; i++) {
+      if (
+        sortedCurrentTrainTags[i].length !== sortedOriginalTrainTags[i].length
+      )
+        return true;
+      for (let j = 0; j < sortedCurrentTrainTags[i].length; j++) {
+        if (sortedCurrentTrainTags[i][j] !== sortedOriginalTrainTags[i][j])
+          return true;
+      }
+    }
+    return false;
+  }),
 );
 
 async function save() {
@@ -191,7 +198,7 @@ async function save() {
 let pathFilter = $state("");
 let pathFilterRegex: RegExp | null = $derived.by(() => {
 	try {
-		return new RegExp(pathFilter);
+    return pathFilter ? new RegExp(pathFilter) : null;
 	} catch {
 		return null;
 	}
@@ -277,19 +284,16 @@ let filteredMedias = $derived(
 
 // === Selection ===
 let selectedMedias: ClientMedia[] = $state([]);
-let filteredSelectedMedias = $derived(
-	// Can't directly compare media objects because of Svelte's proxying
-	selectedMedias.filter((selectedMedia) =>
-		filteredMedias.some(
-			(filteredMedia) => selectedMedia.id === filteredMedia.id,
-		),
-	),
-);
+let filteredSelectedMedias = $derived.by(() => {
+  if (selectedMedias.length === 0) return [];
+  const filteredIds = new Set(filteredMedias.map((m) => m.id));
+  return selectedMedias.filter((m) => filteredIds.has(m.id));
+});
 
 let selectedContextTags: { tag: string; partial: boolean }[] = $derived.by(
 	() => {
 		if (filteredSelectedMedias.length === 0) return [];
-		const [firstMedia, ...restMedia] = selectedMedias;
+    const [firstMedia, ...restMedia] = filteredSelectedMedias;
 		const inAll = new Set(firstMedia.contextTags.get());
 		const inSome = new Set(firstMedia.contextTags.get());
 		for (const media of restMedia) {
