@@ -1,4 +1,3 @@
-import { untrack } from "svelte";
 import { SvelteSet } from "svelte/reactivity";
 
 export type Range = { min: number; max: number };
@@ -46,14 +45,9 @@ export class TagSet extends SvelteSet<string> {
 		tags: Iterable<string> = [],
 	) {
 		super(tags);
-		// Svelte tracks changes inside a constructor,
-		// so assigning TagSet to a state would cause an infinite loop if this weren't wrapped with `untrack`.
-		// This should be fixed in a newer version of Svelte https://github.com/sveltejs/svelte/pull/15553
-		untrack(() => {
-			for (const tag of this) {
-				this.removeImplied(tag);
-			}
-		});
+    for (const tag of this) {
+      this.removeImplied(tag);
+    }
 	}
 
 	add(tag: string) {
