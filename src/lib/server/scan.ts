@@ -106,6 +106,15 @@ async function getMediaMetadata(filePath: string): Promise<{
 export default async function scanAndSave() {
   console.log("Preparing to scan files...");
 
+  // Check if ffprobe is available
+  let ffprobeAvailable = false;
+  try {
+    await execFileAsync("ffprobe", ["-version"]);
+    ffprobeAvailable = true;
+  } catch (error) {
+    console.warn("ffprobe is not available. Media metadata (width, height, duration) will not be extracted.");
+  }
+
   const computeHash = await createHasher();
 
 	const dbMediasArray: {
@@ -195,8 +204,13 @@ export default async function scanAndSave() {
       size: fileSize,
       hash,
       exists: true,
-      ...await getMediaMetadata(absoluteFilePath),
     };
+    if (ffprobeAvailable) {
+      newFiles[fileId] = {
+        ...newFiles[fileId],
+        ...await getMediaMetadata(absoluteFilePath),
+      };
+    }
 
     progressBar.update({
       lastStatus: `New file "${file.path}"`,
