@@ -14,10 +14,12 @@ import { SingleBar } from "cli-progress";
 
 const execFileAsync = promisify(execFile);
 
+type Hash = Uint8Array<ArrayBuffer>;
+
 interface MediaData {
 	path: string;
 	size: number;
-	hash: Uint8Array;
+	hash: Hash;
 	exists: true;
 	width?: number;
 	height?: number;
@@ -30,11 +32,11 @@ const HASH_END_SIZE = 1024 * 1024; // 1MB
 
 // A unique ID for a file based on its size and hash
 type FileId = string;
-function getFileId(size: number | bigint, hash: Uint8Array): FileId {
+function getFileId(size: number | bigint, hash: Hash): FileId {
   return `${size}-${Buffer.from(hash).toString("hex")}`;
 }
 
-async function createHasher(): Promise<(filePath: string, size: number) => Promise<Uint8Array>> {
+async function createHasher(): Promise<(filePath: string, size: number) => Promise<Hash>> {
   const { h64Raw } = await xxhash();
   const sharedBuffer = Buffer.allocUnsafe(HASH_START_SIZE + HASH_END_SIZE);
 
@@ -109,7 +111,7 @@ export default async function scanAndSave() {
 	const dbMediasArray: {
     path: string;
     size: bigint;
-    hash: Uint8Array;
+    hash: Hash;
     exists: boolean;
   }[] = await prisma.media.findMany({
 		select: {
@@ -145,7 +147,7 @@ export default async function scanAndSave() {
 
 	const movedFiles: Record<FileId, {
     size: bigint;
-    hash: Uint8Array;
+    hash: Hash;
     oldPath: string;
     newPath: string
   }> = {};
@@ -217,7 +219,9 @@ export default async function scanAndSave() {
 	await prisma.$transaction(
     Object.values(movedFiles).map((media) =>
 			prisma.media.update({
-				where: { size: media.size, hash: media.hash },
+				where: {
+          size_hash: { size: media.size, hash: media.hash },
+        },
 				data: { path: media.newPath, exists: true },
 			}),
 		),
@@ -237,7 +241,9 @@ export default async function scanAndSave() {
 	await prisma.$transaction(
     missingFiles.map((media) =>
       prisma.media.update({
-        where: { size: media.size, hash: media.hash },
+        where: {
+          size_hash: { size: media.size, hash: media.hash },
+        },
         data: { exists: false },
       }),
     ),
