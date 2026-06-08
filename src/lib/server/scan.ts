@@ -132,8 +132,9 @@ export default async function scanAndSave() {
 	});
   const dbPaths = new Set(dbMediasArray.map(media => media.path));
 
-  const files = await fs.readdir(MEDIAS_PATH, { recursive: true });
-  const validFiles = files
+  const diskFiles = await fs.readdir(MEDIAS_PATH, { recursive: true });
+  const diskFilesSet = new Set(diskFiles);
+  const newDiskFiles = diskFiles
     .filter((file) => {
       return (
         !EXCLUDED_FILES.includes(file) &&
@@ -144,8 +145,8 @@ export default async function scanAndSave() {
     .map((file) => ({ path: file, ext: path.extname(file).toLowerCase() }))
     .filter((file) => VALID_EXTENSIONS.includes(file.ext));
 
-  if (validFiles.length === 0) {
-    console.log("No valid files found!");
+  if (newDiskFiles.length === 0) {
+    console.log("No new files found on disk!");
     return;
   }
 
@@ -154,84 +155,99 @@ export default async function scanAndSave() {
     dbMedias[getFileId(media.size, media.hash)] = media;
   }
 
-	const movedFiles: Record<FileId, {
+	const movedMedias: Record<FileId, {
     size: bigint;
     hash: Hash;
     oldPath: string;
     newPath: string
   }> = {};
-	const newFiles: Record<FileId, MediaData> = {};
-  const duplicates: { path1: string; path2: string }[] = [];
+	const newMedias: Record<FileId, MediaData> = {};
+  const duplicateFiles: { path1: string; path2: string }[] = [];
 
 	const progressBar = new SingleBar({
     format: "Scanning files | {bar} | {eta_formatted} | {value}/{total} | {currentStatus} | {lastStatus}"
   });
-  progressBar.start(validFiles.length, 0, { currentStatus: "Starting...", lastStatus: "" });
+  progressBar.start(newDiskFiles.length, 0, { currentStatus: "Starting...", lastStatus: "" });
 
-  for (const file of validFiles) {
-    progressBar.increment({ currentStatus: `Processing ${file.path}` });
-    const absoluteFilePath = path.join(MEDIAS_PATH, file.path);
+  function addDuplicate(path1: string, path2: string) {
+    duplicateFiles.push({ path1, path2 });
+    progressBar.update({
+      lastStatus: `Duplicate of "${path1}" at "${path2}"`,
+    });
+  }
+
+  for (const diskFile of newDiskFiles) {
+    progressBar.increment({ currentStatus: `Processing ${diskFile.path}` });
+    const absoluteFilePath = path.join(MEDIAS_PATH, diskFile.path);
 
     const { size: fileSize } = await fs.stat(absoluteFilePath);
     const hash = await computeHash(absoluteFilePath, fileSize);
     const fileId = getFileId(fileSize, hash);
 
-    const existingMedia = newFiles[fileId];
+    const existingMedia = newMedias[fileId];
     if (existingMedia) {
-      duplicates.push({ path1: existingMedia.path, path2: file.path });
-      progressBar.update({
-        lastStatus: `Duplicate of "${existingMedia.path}" at "${file.path}"`,
-      });
+      addDuplicate(existingMedia.path, diskFile.path);
+      continue;
+    }
+
+    const movedMedia = movedMedias[fileId];
+    if (movedMedia) {
+      addDuplicate(movedMedia.newPath, diskFile.path);
       continue;
     }
 
     const dbMedia = dbMedias[fileId];
     if (dbMedia) {
-      movedFiles[fileId] = {
+      if (diskFilesSet.has(dbMedia.path)) {
+        addDuplicate(dbMedia.path, diskFile.path);
+        continue;
+      }
+
+      movedMedias[fileId] = {
         size: dbMedia.size,
         hash: dbMedia.hash,
         oldPath: dbMedia.path,
-        newPath: file.path
+        newPath: diskFile.path
       };
       progressBar.update({
-        lastStatus: `Moved "${dbMedia.path}" to "${file.path}"`,
+        lastStatus: `Moved "${dbMedia.path}" to "${diskFile.path}"`,
       });
       continue;
     }
 
-    newFiles[fileId] = {
-      path: file.path,
+    newMedias[fileId] = {
+      path: diskFile.path,
       size: fileSize,
       hash,
       exists: true,
     };
     if (ffprobeAvailable) {
-      newFiles[fileId] = {
-        ...newFiles[fileId],
+      newMedias[fileId] = {
+        ...newMedias[fileId],
         ...await getMediaMetadata(absoluteFilePath),
       };
     }
 
     progressBar.update({
-      lastStatus: `New file "${file.path}"`,
+      lastStatus: `New media "${diskFile.path}"`,
     });
   }
   progressBar.stop();
-	console.log("Finished scanning files!");
+	console.log("Finished scanning for new media!");
 
-  for (const moved of Object.values(movedFiles)) {
-    console.log(`Moved file from "${moved.oldPath}" to "${moved.newPath}"`);
+  for (const moved of Object.values(movedMedias)) {
+    console.log(`Media previously at "${moved.oldPath}" moved to "${moved.newPath}"`);
   }
-  for (const media of Object.values(newFiles)) {
+  for (const media of Object.values(newMedias)) {
     console.log(`Found new file "${media.path}"`);
   }
-  for (const duplicate of duplicates) {
+  for (const duplicate of duplicateFiles) {
     console.log(`Found duplicate of "${duplicate.path1}" at "${duplicate.path2}"`);
   }
 
 	// Update moved files in the database
 	await prisma.$transaction(
-    Object.values(movedFiles).map((media) =>
+    Object.values(movedMedias).map((media) =>
 			prisma.media.update({
 				where: {
           size_hash: { size: media.size, hash: media.hash },
@@ -242,12 +258,12 @@ export default async function scanAndSave() {
 	);
 
 	// Add new files to the database
-	await prisma.media.createMany({ data: Object.values(newFiles) });
+	await prisma.media.createMany({ data: Object.values(newMedias) });
 
 	// Mark missing files as such
   const missingFiles = Object.entries(dbMedias)
     .filter(([fileId, media]) =>
-      media.exists && !files.includes(media.path) && !movedFiles[fileId]
+      media.exists && !diskFilesSet.has(media.path) && !movedMedias[fileId]
   ).map(([_, media]) => media);
   for (const media of missingFiles) {
     console.log(`Missing file "${media.path}"`);
