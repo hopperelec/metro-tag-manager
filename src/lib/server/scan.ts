@@ -1,66 +1,133 @@
-import { createReadStream, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
 	EXCLUDED_FILES,
 	EXCLUDED_FOLDERS,
 	MEDIAS_PATH,
 	VALID_EXTENSIONS,
-	VIDEO_EXTENSIONS,
 } from "$lib/constants";
 import prisma from "$lib/server/prisma";
-import ffmpeg from "fluent-ffmpeg";
-import { createHash } from "node:crypto";
+import xxhash from "xxhash-wasm";
 import { SingleBar } from "cli-progress";
 
-type MediaData = {
+const execFileAsync = promisify(execFile);
+
+interface MediaData {
 	path: string;
 	size: number;
-	sha1: Uint8Array;
+	hash: Uint8Array;
 	exists: true;
-	width: number | undefined;
-	height: number | undefined;
-	duration: number | undefined;
-};
-
-const READ_BUFFER_SIZE = 1024 * 1024; // 1MB
-
-function computeSha1(filePath: string) {
-	return new Promise<Uint8Array>((resolve, reject) => {
-		const hashSum = createHash("sha1");
-		const stream = createReadStream(filePath, {
-			highWaterMark: READ_BUFFER_SIZE,
-		});
-		stream.pipe(hashSum);
-		hashSum.on("finish", () => {
-			resolve(hashSum.digest());
-		});
-		stream.on("error", reject);
-	});
+	width?: number;
+	height?: number;
+	duration?: number;
 }
 
-function compareHashes(a: Uint8Array, b: Uint8Array) {
-	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i++) {
-		if (a[i] !== b[i]) return false;
-	}
-	return true;
+// How many bytes at the start and end of each file to use for the hash
+const HASH_START_SIZE = 1024 * 1024; // 1MB
+const HASH_END_SIZE = 1024 * 1024; // 1MB
+
+// A unique ID for a file based on its size and hash
+type FileId = string;
+function getFileId(size: number | bigint, hash: Uint8Array): FileId {
+  return `${size}-${Buffer.from(hash).toString("hex")}`;
+}
+
+async function createHasher(): Promise<(filePath: string, size: number) => Promise<Uint8Array>> {
+  const { h64Raw } = await xxhash();
+  const sharedBuffer = Buffer.allocUnsafe(HASH_START_SIZE + HASH_END_SIZE);
+
+  return async (filePath: string, size: number) => {
+    // Get the first and last parts of the file to compute the hash
+    let buffer: Buffer;
+    if (size <= HASH_START_SIZE + HASH_END_SIZE) {
+      buffer = await fs.readFile(filePath);
+    } else {
+      buffer = sharedBuffer
+      const fd = await fs.open(filePath, "r");
+      try {
+        await fd.read(buffer, 0, HASH_START_SIZE, 0);
+        await fd.read(buffer, HASH_START_SIZE, HASH_END_SIZE, size - HASH_END_SIZE);
+      } finally {
+        await fd.close();
+      }
+    }
+
+    const hashBigInt = h64Raw(new Uint8Array(buffer));
+    // Convert the bigint hash to a Uint8Array
+    const hashArray = new Uint8Array(8);
+    const view = new DataView(hashArray.buffer);
+    view.setBigUint64(0, hashBigInt, false);
+
+    return hashArray;
+  }
+}
+
+async function getMediaMetadata(filePath: string): Promise<{
+  width?: number;
+  height?: number;
+  duration?: number;
+}> {
+  try {
+    const {stdout} = await execFileAsync("ffprobe", [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=width,height:format=duration",
+      "-of", "json",
+      "--",
+      filePath,
+    ]);
+    const ffProbeResult = JSON.parse(stdout);
+
+    const result: {
+      width?: number;
+      height?: number;
+      duration?: number;
+    } = {};
+    if (ffProbeResult.streams?.[0]) {
+      result.width = ffProbeResult.streams[0].width;
+      result.height = ffProbeResult.streams[0].height;
+    }
+    if (ffProbeResult.format?.duration) {
+      const parsed = parseFloat(ffProbeResult.format.duration);
+      if (!isNaN(parsed)) {
+        result.duration = parsed;
+      }
+    }
+    return result;
+  } catch (error) {
+    return {};
+  }
 }
 
 export default async function scanAndSave() {
-	const dbMedias = await prisma.media.findMany({
-		select: { path: true, sha1: true, exists: true },
+  console.log("Preparing to scan files...");
+
+  const computeHash = await createHasher();
+
+	const dbMediasArray: {
+    path: string;
+    size: bigint;
+    hash: Uint8Array;
+    exists: boolean;
+  }[] = await prisma.media.findMany({
+		select: {
+      path: true,
+      size: true,
+      hash: true,
+      exists: true
+    },
 	});
-  const knownPaths = new Set(dbMedias.map((media) => media.path));
+  const dbPaths = new Set(dbMediasArray.map(media => media.path));
 
   const files = await fs.readdir(MEDIAS_PATH, { recursive: true });
   const validFiles = files
     .filter((file) => {
       return (
         !EXCLUDED_FILES.includes(file) &&
-        !EXCLUDED_FOLDERS.some((folder) => file.startsWith(folder)) &&
-        // Skipping known paths is unideal, in case the file changes,
-        // but hashing is far too slow to do for all files
-        !knownPaths.has(file)
+        !EXCLUDED_FOLDERS.some(folder => file.startsWith(folder + path.sep)) &&
+        !dbPaths.has(file)
       );
     })
     .map((file) => ({ path: file, ext: path.extname(file).toLowerCase() }))
@@ -71,8 +138,18 @@ export default async function scanAndSave() {
     return;
   }
 
-	const movedFiles: { sha1: Uint8Array; oldPath: string; newPath: string }[] = [];
-	const newMedias: MediaData[] = [];
+  const dbMedias: Record<FileId, typeof dbMediasArray[number]> = {};
+  for (const media of dbMediasArray) {
+    dbMedias[getFileId(media.size, media.hash)] = media;
+  }
+
+	const movedFiles: Record<FileId, {
+    size: bigint;
+    hash: Uint8Array;
+    oldPath: string;
+    newPath: string
+  }> = {};
+	const newFiles: Record<FileId, MediaData> = {};
   const duplicates: { path1: string; path2: string }[] = [];
 
 	const progressBar = new SingleBar({
@@ -80,57 +157,45 @@ export default async function scanAndSave() {
   });
   progressBar.start(validFiles.length, 0, { currentStatus: "Starting...", lastStatus: "" });
 
-  fileIter: for (const file of validFiles) {
+  for (const file of validFiles) {
     progressBar.increment({ currentStatus: `Processing ${file.path}` });
     const absoluteFilePath = path.join(MEDIAS_PATH, file.path);
 
-    const sha1 = await computeSha1(absoluteFilePath);
+    const { size: fileSize } = await fs.stat(absoluteFilePath);
+    const hash = await computeHash(absoluteFilePath, fileSize);
+    const fileId = getFileId(fileSize, hash);
 
-    for (const newMedia of newMedias) {
-      if (compareHashes(newMedia.sha1, sha1)) {
-        duplicates.push({ path1: newMedia.path, path2: file.path });
-        progressBar.update({
-          lastStatus: `Duplicate of "${newMedia.path}" at "${file.path}"`,
-        })
-        continue fileIter;
-      }
+    const existingMedia = newFiles[fileId];
+    if (existingMedia) {
+      duplicates.push({ path1: existingMedia.path, path2: file.path });
+      progressBar.update({
+        lastStatus: `Duplicate of "${existingMedia.path}" at "${file.path}"`,
+      });
+      continue;
     }
 
-    for (const dbMedia of dbMedias) {
-      if (compareHashes(dbMedia.sha1, sha1)) {
-        if (dbMedia.path !== file.path) {
-          movedFiles.push({ sha1, oldPath: dbMedia.path, newPath: file.path });
-          progressBar.update({
-            lastStatus: `Moved "${dbMedia.path}" to "${file.path}"`,
-          });
-        } else {
-          progressBar.update({
-            lastStatus: `"${file.path}" already known`,
-          });
-        }
-        continue fileIter;
-      }
+    const dbMedia = dbMedias[fileId];
+    if (dbMedia) {
+      movedFiles[fileId] = {
+        size: dbMedia.size,
+        hash: dbMedia.hash,
+        oldPath: dbMedia.path,
+        newPath: file.path
+      };
+      progressBar.update({
+        lastStatus: `Moved "${dbMedia.path}" to "${file.path}"`,
+      });
+      continue;
     }
 
-    const stat = await fs.stat(absoluteFilePath);
-    newMedias.push(
-      await new Promise<MediaData>((resolve, reject) => {
-        ffmpeg.ffprobe(absoluteFilePath, (err, metadata) => {
-          if (err) reject(err);
-          resolve({
-            path: file.path,
-            size: stat.size,
-            sha1,
-            exists: true,
-            width: metadata.streams[0].width,
-            height: metadata.streams[0].height,
-            duration: VIDEO_EXTENSIONS.includes(file.ext)
-              ? metadata.format.duration
-              : 0,
-          });
-        });
-      }),
-    );
+    newFiles[fileId] = {
+      path: file.path,
+      size: fileSize,
+      hash,
+      exists: true,
+      ...await getMediaMetadata(absoluteFilePath),
+    };
+
     progressBar.update({
       lastStatus: `New file "${file.path}"`,
     });
@@ -138,10 +203,10 @@ export default async function scanAndSave() {
   progressBar.stop();
 	console.log("Finished scanning files!");
 
-  for (const moved of movedFiles) {
+  for (const moved of Object.values(movedFiles)) {
     console.log(`Moved file from "${moved.oldPath}" to "${moved.newPath}"`);
   }
-  for (const media of newMedias) {
+  for (const media of Object.values(newFiles)) {
     console.log(`Found new file "${media.path}"`);
   }
   for (const duplicate of duplicates) {
@@ -150,31 +215,29 @@ export default async function scanAndSave() {
 
 	// Update moved files in the database
 	await prisma.$transaction(
-		movedFiles.map((media) =>
+    Object.values(movedFiles).map((media) =>
 			prisma.media.update({
-				where: { sha1: media.sha1 },
+				where: { size: media.size, hash: media.hash },
 				data: { path: media.newPath, exists: true },
 			}),
 		),
 	);
 
 	// Add new files to the database
-	await prisma.media.createMany({ data: [...newMedias.values()] });
+	await prisma.media.createMany({ data: Object.values(newFiles) });
 
 	// Mark missing files as such
-  const missingFiles = dbMedias.filter(
-    (media) =>
-      media.exists &&
-      !files.includes(media.path) &&
-      !movedFiles.some((moved) => moved.oldPath === media.path),
-  );
+  const missingFiles = Object.entries(dbMedias)
+    .filter(([fileId, media]) =>
+      media.exists && !files.includes(media.path) && !movedFiles[fileId]
+  ).map(([_, media]) => media);
   for (const media of missingFiles) {
     console.log(`Missing file "${media.path}"`);
   }
 	await prisma.$transaction(
     missingFiles.map((media) =>
       prisma.media.update({
-        where: { sha1: media.sha1 },
+        where: { size: media.size, hash: media.hash },
         data: { exists: false },
       }),
     ),
