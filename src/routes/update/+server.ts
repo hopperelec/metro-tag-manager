@@ -41,10 +41,8 @@ export const POST: RequestHandler = async ({ request }) => {
 				where: { id: mediaId },
 				data: {
 					contextTags: {
-						connectOrCreate: contextTags.map((tag) => ({
-							where: { mediaId_tag: { mediaId, tag } },
-							create: { tag },
-						})),
+            deleteMany: { mediaId },
+            create: contextTags.map((tag) => ({ tag })),
 					},
 					trainTags: {
 						deleteMany: { mediaId },
